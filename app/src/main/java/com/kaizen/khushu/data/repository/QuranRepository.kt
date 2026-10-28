@@ -23,6 +23,7 @@ object QuranRepository {
     private var tajweedMap: Map<String, String>? = null
     private var uthmaniMap: Map<String, String>? = null
     private var verseMetaMap: Map<String, VerseMeta>? = null
+    private val scriptCache = ConcurrentHashMap<String, Map<String, String>>()
     private val json = Json { ignoreUnknownKeys = true }
 
     fun getVerseMeta(context: Context): Map<String, VerseMeta> {
@@ -33,17 +34,19 @@ object QuranRepository {
             val map = obj.entries.associate { (key, value) ->
                 val v = value.jsonObject
                 key to VerseMeta(
-                    juz    = v["juz"]?.jsonPrimitive?.intOrNull ?: 1,
-                    hizb   = v["hizb"]?.jsonPrimitive?.intOrNull ?: 0,
-                    rub    = v["rub"]?.jsonPrimitive?.intOrNull ?: 0,
+                    juz = v["juz"]?.jsonPrimitive?.intOrNull ?: 1,
+                    hizb = v["hizb"]?.jsonPrimitive?.intOrNull ?: 0,
+                    rub = v["rub"]?.jsonPrimitive?.intOrNull ?: 0,
                     manzil = v["manzil"]?.jsonPrimitive?.intOrNull ?: 0,
-                    ruku   = v["ruku"]?.jsonPrimitive?.intOrNull ?: 0,
-                    sajda  = v["sajda"]?.jsonPrimitive?.contentOrNull,
+                    ruku = v["ruku"]?.jsonPrimitive?.intOrNull ?: 0,
+                    sajda = v["sajda"]?.jsonPrimitive?.contentOrNull,
                 )
             }
             verseMetaMap = map
             map
-        } catch (_: Exception) { emptyMap() }
+        } catch (_: Exception) {
+            emptyMap()
+        }
     }
 
     fun getChapters(context: Context): List<SurahMeta> {
@@ -59,6 +62,26 @@ object QuranRepository {
             list
         } catch (_: Exception) {
             emptyList()
+        }
+    }
+
+    fun getScriptMap(context: Context, script: String): Map<String, String> {
+        scriptCache[script]?.let { return it }
+        val filename = when (script) {
+            QuranScriptFontRepository.UTHMANIC_HAFS -> "uthmani.json"
+            "indopak" -> "indopak.json"
+            "uthmani_simple" -> "uthmani_simple.json"
+            "imlaei" -> "imlaei.json"
+            else -> "uthmani.json"
+        }
+        return try {
+            val raw = context.assets.open("quran/$filename").bufferedReader().use { it.readText() }
+            val map = json.parseToJsonElement(raw).jsonObject
+                .mapValues { it.value.jsonPrimitive.content }
+            scriptCache[script] = map
+            map
+        } catch (_: Exception) {
+            emptyMap()
         }
     }
 
@@ -97,10 +120,10 @@ object QuranRepository {
     fun getAyahs(context: Context, surahNumber: Int): List<Pair<Int, String>> {
         val tajweed = loadTajweed(context)
         val uthmani = loadUthmani(context)
-        
+
         val chapters = getChapters(context)
         val surah = chapters.find { it.id == surahNumber } ?: return emptyList()
-        
+
         val result = mutableListOf<Pair<Int, String>>()
         for (i in 1..surah.versesCount) {
             val key = "$surahNumber:$i"
@@ -113,7 +136,7 @@ object QuranRepository {
     fun getTranslation(context: Context, surahNumber: Int, translationId: String): Map<Int, String> {
         val fullMap = TranslationRepository.load(context, translationId)
         if (fullMap.isEmpty()) return emptyMap()
-        
+
         val result = mutableMapOf<Int, String>()
         val prefix = "$surahNumber:"
         fullMap.forEach { (key, text) ->

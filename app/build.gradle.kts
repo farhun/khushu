@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.kaizen.khushu"
+        applicationId = "io.github.farhun.khushu"
         minSdk = 30
         targetSdk = 36
         versionCode = 85

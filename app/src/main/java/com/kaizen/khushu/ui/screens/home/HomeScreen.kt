@@ -119,18 +119,6 @@ private fun findCurrentPrayer(prayers: List<PrayerInfo>, now: Long): PrayerInfo?
     return prayers.lastOrNull { it.rawTime.toEpochMilliseconds() <= now } ?: prayers.last()
 }
 
-private fun homeDayStamp(epochMillis: Long): String {
-    val effectiveMillis = if (epochMillis > 0L) epochMillis else System.currentTimeMillis()
-    return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(effectiveMillis))
-}
-
-private fun emptyPrayerDoneStates(prayers: List<PrayerInfo>): Map<String, Boolean> {
-    val names =
-            prayers.filterNot { it.isExtra }.map { it.name }.ifEmpty {
-                listOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
-            }
-    return names.associateWith { false }
-}
 
 private const val KAABA_LATITUDE = 21.4225
 private const val KAABA_LONGITUDE = 39.8262
@@ -147,7 +135,8 @@ private fun qiblaBearingDegrees(latitude: Double, longitude: Double): Double {
 }
 
 private fun compassPointLabel(bearing: Double): String {
-    val points = listOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
+    val points =
+        listOf("N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW")
     val index = (((bearing + 11.25) % 360) / 22.5).toInt()
     return points[index]
 }
@@ -243,8 +232,16 @@ private fun QiblaCompassDialog(
                             color = needleColor,
                             start = center,
                             end = androidx.compose.ui.geometry.Offset(
-                                x = center.x + sin(Math.toRadians((relativeBearing ?: 0f).toDouble())).toFloat() * radius * 0.78f,
-                                y = center.y - cos(Math.toRadians((relativeBearing ?: 0f).toDouble())).toFloat() * radius * 0.78f
+                                x = center.x + sin(
+                                    Math.toRadians(
+                                        (relativeBearing ?: 0f).toDouble()
+                                    )
+                                ).toFloat() * radius * 0.78f,
+                                y = center.y - cos(
+                                    Math.toRadians(
+                                        (relativeBearing ?: 0f).toDouble()
+                                    )
+                                ).toFloat() * radius * 0.78f
                             ),
                             strokeWidth = 6.dp.toPx(),
                             cap = StrokeCap.Round
@@ -297,8 +294,8 @@ private fun QiblaCompassDialog(
 }
 
 private data class HomeHijriBadgeParts(
-        val dayMonth: String,
-        val year: String,
+    val dayMonth: String,
+    val year: String,
 )
 
 private fun splitHijriBadgeParts(raw: String): HomeHijriBadgeParts {
@@ -316,8 +313,8 @@ private fun splitHijriBadgeParts(raw: String): HomeHijriBadgeParts {
 
 @Composable
 private fun HomeHijriBadge(
-        badge: HomeHijriBadgeParts,
-        modifier: Modifier = Modifier,
+    badge: HomeHijriBadgeParts,
+    modifier: Modifier = Modifier,
 ) {
     val baseColor = MaterialTheme.colorScheme.onSurface
     val label = remember(badge, baseColor) {
@@ -331,91 +328,91 @@ private fun HomeHijriBadge(
     }
 
     Surface(
-            modifier = modifier,
-            shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            tonalElevation = 0.dp,
-            shadowElevation = 0.dp,
-            ) {
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+    ) {
         Text(
-                text = label,
-                style =
-                        MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = BeVietnamPro,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                        ),
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+            text = label,
+            style =
+                MaterialTheme.typography.bodyMedium.copy(
+                    fontFamily = BeVietnamPro,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
         )
     }
 }
 
 @Composable
 private fun KhushuPullRefreshIndicator(
-        progress: Float,
-        isRefreshing: Boolean,
-        darkTheme: Boolean,
-        modifier: Modifier = Modifier,
+    progress: Float,
+    isRefreshing: Boolean,
+    darkTheme: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     val logoRes = if (darkTheme) R.drawable.ic_khushu_logo else R.drawable.ic_khushu_logo_black
     val targetProgress = if (isRefreshing) 1f else progress.coerceIn(0f, 1f)
     val visibleProgress by
-            animateFloatAsState(
-                    targetValue = targetProgress,
-                    animationSpec = tween(durationMillis = if (isRefreshing) 240 else 120),
-                    label = "home_refresh_indicator_progress"
-            )
+    animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = if (isRefreshing) 240 else 120),
+        label = "home_refresh_indicator_progress"
+    )
     val indicatorAlpha by
-            animateFloatAsState(
-                    targetValue = if (isRefreshing || progress > 0f) 1f else 0f,
-                    animationSpec = tween(durationMillis = 180),
-                    label = "home_refresh_indicator_alpha"
-            )
+    animateFloatAsState(
+        targetValue = if (isRefreshing || progress > 0f) 1f else 0f,
+        animationSpec = tween(durationMillis = 180),
+        label = "home_refresh_indicator_alpha"
+    )
     val pulseScaleBase =
-            rememberInfiniteTransition(label = "home_refresh_logo_pulse")
-                    .animateFloat(
-                            initialValue = 1f,
-                            targetValue = 1.10f,
-                            animationSpec =
-                                    infiniteRepeatable(
-                                            animation = tween(
-                                                durationMillis = 900,
-                                                easing = FastOutSlowInEasing
-                                            ),
-                                            repeatMode = RepeatMode.Reverse
-                                    ),
-                            label = "home_refresh_logo_scale"
-                    )
-                    .value
+        rememberInfiniteTransition(label = "home_refresh_logo_pulse")
+            .animateFloat(
+                initialValue = 1f,
+                targetValue = 1.10f,
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(
+                            durationMillis = 900,
+                            easing = FastOutSlowInEasing
+                        ),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                label = "home_refresh_logo_scale"
+            )
+            .value
     val pulseScale = if (isRefreshing) pulseScaleBase else 1f
 
     Box(
-            modifier =
-                    modifier.graphicsLayer {
-                        alpha = indicatorAlpha
-                        scaleX = pulseScale
-                        scaleY = pulseScale
-                    },
-            contentAlignment = Alignment.Center
+        modifier =
+            modifier.graphicsLayer {
+                alpha = indicatorAlpha
+                scaleX = pulseScale
+                scaleY = pulseScale
+            },
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-                painter = painterResource(id = logoRes),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
-                modifier = Modifier.fillMaxSize()
+            painter = painterResource(id = logoRes),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f),
+            modifier = Modifier.fillMaxSize()
         )
         Icon(
-                painter = painterResource(id = logoRes),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier =
-                        Modifier.fillMaxSize().drawWithContent {
-                            val clipTop = size.height * (1f - visibleProgress)
-                            clipRect(top = clipTop) { this@drawWithContent.drawContent() }
-                        }
+            painter = painterResource(id = logoRes),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier =
+                Modifier.fillMaxSize().drawWithContent {
+                    val clipTop = size.height * (1f - visibleProgress)
+                    clipRect(top = clipTop) { this@drawWithContent.drawContent() }
+                }
         )
     }
 }
@@ -423,19 +420,18 @@ private fun KhushuPullRefreshIndicator(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-        hazeState: HazeState,
-        contentPadding: PaddingValues,
-        onSettingsClick: () -> Unit,
-        onPrayClick: () -> Unit,
-        viewModel: HomeViewModel,
-        modifier: Modifier = Modifier,
+    hazeState: HazeState,
+    contentPadding: PaddingValues,
+    onSettingsClick: () -> Unit,
+    viewModel: HomeViewModel,
+    modifier: Modifier = Modifier,
 ) {
     val darkTheme = isSystemInDarkTheme()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
+
 
     var currentInstant by remember { mutableStateOf(Instant.fromEpochMilliseconds(System.currentTimeMillis())) }
     LaunchedEffect(Unit) {
@@ -449,19 +445,13 @@ fun HomeScreen(
     val refreshThresholdPx = with(density) { 118.dp.toPx() }
     val refreshHoldPx = with(density) { 74.dp.toPx() }
     val maxPullPx = with(density) { 164.dp.toPx() }
-    val currentDayStamp = homeDayStamp(currentTimeMillis)
+
     var cachedPrayers by remember { mutableStateOf<List<PrayerInfo>>(emptyList()) }
     var cachedExtraTimings by remember { mutableStateOf<List<PrayerInfo>>(emptyList()) }
-    var cachedEvents by remember { mutableStateOf<List<IslamicEvent>>(emptyList()) }
-    var cachedCalendarEvents by remember { mutableStateOf<List<IslamicEvent>>(emptyList()) }
-    var cachedHijriDate by remember { mutableStateOf("") }
-    var cachedEventsHeader by remember { mutableStateOf("") }
 
-    val basePrayerList = (uiState.prayers.ifEmpty { cachedPrayers }).filterNot { it.isExtra }
-    var doneStates by
-            rememberSaveable(currentDayStamp) {
-                mutableStateOf(emptyPrayerDoneStates(basePrayerList))
-            }
+    var cachedHijriDate by remember { mutableStateOf("") }
+
+
     var showTimeOverrideDialog by remember { mutableStateOf(false) }
     var selectedQuickAction by remember { mutableStateOf<HomeQuickAction?>(null) }
     var previewHourText by remember { mutableStateOf("") }
@@ -470,12 +460,9 @@ fun HomeScreen(
     var thresholdReached by remember { mutableStateOf(false) }
 
     LaunchedEffect(
-            uiState.prayers,
-            uiState.extraTimings,
-            uiState.events,
-            uiState.calendarEvents,
-            uiState.hijriDate,
-            uiState.eventsHeader
+        uiState.prayers,
+        uiState.extraTimings,
+        uiState.hijriDate
     ) {
         if (uiState.prayers.isNotEmpty()) {
             cachedPrayers = uiState.prayers
@@ -483,33 +470,19 @@ fun HomeScreen(
         if (uiState.extraTimings.isNotEmpty() || cachedExtraTimings.isEmpty()) {
             cachedExtraTimings = uiState.extraTimings
         }
-        if (uiState.events.isNotEmpty() || cachedEvents.isEmpty()) {
-            cachedEvents = uiState.events
-        }
-        if (uiState.calendarEvents.isNotEmpty() || cachedCalendarEvents.isEmpty()) {
-            cachedCalendarEvents = uiState.calendarEvents
-        }
+
         if (uiState.hijriDate.isNotBlank()) {
             cachedHijriDate = uiState.hijriDate
         }
-        if (uiState.eventsHeader.isNotBlank()) {
-            cachedEventsHeader = uiState.eventsHeader
-        }
+
     }
 
-    LaunchedEffect(basePrayerList) {
-        val expected = emptyPrayerDoneStates(basePrayerList)
-        if (expected.keys != doneStates.keys) {
-            doneStates = expected
-        }
-    }
 
     val displayPrayers = uiState.prayers.ifEmpty { cachedPrayers }
     val displayExtraTimings = uiState.extraTimings.ifEmpty { cachedExtraTimings }
-    val displayEvents = uiState.events.ifEmpty { cachedEvents }
-    val displayCalendarEvents = uiState.calendarEvents.ifEmpty { cachedCalendarEvents }
+
     val displayHijriDate = uiState.hijriDate.ifBlank { cachedHijriDate }
-    val displayEventsHeader = uiState.eventsHeader.ifBlank { cachedEventsHeader }
+
     val hijriBadge = remember(displayHijriDate) { splitHijriBadgeParts(displayHijriDate) }
     val qiblaBearing = remember(uiState.locationLat, uiState.locationLng) {
         qiblaBearingDegrees(uiState.locationLat.toDouble(), uiState.locationLng.toDouble())
@@ -517,11 +490,11 @@ fun HomeScreen(
 
     val currentPrayer = findCurrentPrayer(displayPrayers, currentTimeMillis)
     val homeVisibleTimings =
-            if (uiState.showExtraPrayerTimingsOnHome) {
-                (displayPrayers + displayExtraTimings).sortedBy { it.rawTime.toEpochMilliseconds() }
-            } else {
-                displayPrayers
-            }
+        if (uiState.showExtraPrayerTimingsOnHome) {
+            (displayPrayers + displayExtraTimings).sortedBy { it.rawTime.toEpochMilliseconds() }
+        } else {
+            displayPrayers
+        }
     val nextPrayer = findNextPrayer(homeVisibleTimings, currentTimeMillis)
 
     val sunArcT by derivedStateOf {
@@ -534,34 +507,21 @@ fun HomeScreen(
         }
     }
 
-    val doneCount = doneStates.values.count { it }
+
     val locationLabel = uiState.locationLabel.ifBlank { "Your area" }
     val pullProgress = (pullOffsetPx / refreshThresholdPx).coerceIn(0f, 1f)
 
-    // Detect how much of the PrayerSlab (always the last LazyColumn item) is visible.
-    // When ≥80% is visible, reveal the EXPLORE quick-action row.
-    val slabVisibilityFraction by remember {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            val lastItem = info.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf 0f
-            if (lastItem.index != info.totalItemsCount - 1) return@derivedStateOf 0f
-            val viewportHeight = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
-            if (viewportHeight <= 0f) return@derivedStateOf 0f
-            val offset = lastItem.offset.coerceAtLeast(0).toFloat()
-            ((viewportHeight - offset) / viewportHeight).coerceIn(0f, 1f)
-        }
-    }
-    val showSlabQuickActions = slabVisibilityFraction >= 0.8f
+
     val animatedPullOffsetPx by
-            animateFloatAsState(
-                    targetValue =
-                            when {
-                                uiState.isRefreshing -> refreshHoldPx
-                                else -> pullOffsetPx
-                            },
-                    animationSpec = spring(stiffness = 420f, dampingRatio = 0.88f),
-                    label = "home_pull_offset"
-            )
+    animateFloatAsState(
+        targetValue =
+            when {
+                uiState.isRefreshing -> refreshHoldPx
+                else -> pullOffsetPx
+            },
+        animationSpec = spring(stiffness = 420f, dampingRatio = 0.88f),
+        label = "home_pull_offset"
+    )
 
     LaunchedEffect(uiState.isRefreshing) {
         if (!uiState.isRefreshing) {
@@ -571,92 +531,92 @@ fun HomeScreen(
     }
 
     val pullRefreshConnection =
-            remember(listState, uiState.isRefreshing) {
-                object : NestedScrollConnection {
-                    override fun onPreScroll(
-                            available: androidx.compose.ui.geometry.Offset,
-                            source: NestedScrollSource
-                    ): androidx.compose.ui.geometry.Offset {
-                        if (source != NestedScrollSource.UserInput)
-                                return androidx.compose.ui.geometry.Offset.Zero
+        remember(listState, uiState.isRefreshing) {
+            object : NestedScrollConnection {
+                override fun onPreScroll(
+                    available: androidx.compose.ui.geometry.Offset,
+                    source: NestedScrollSource
+                ): androidx.compose.ui.geometry.Offset {
+                    if (source != NestedScrollSource.UserInput)
+                        return androidx.compose.ui.geometry.Offset.Zero
 
-                        if (available.y < 0f && pullOffsetPx > 0f) {
-                            val previous = pullOffsetPx
-                            pullOffsetPx = (pullOffsetPx + available.y).coerceAtLeast(0f)
-                            if (pullOffsetPx < refreshThresholdPx) {
-                                thresholdReached = false
-                            }
-                            return androidx.compose.ui.geometry.Offset(0f, pullOffsetPx - previous)
+                    if (available.y < 0f && pullOffsetPx > 0f) {
+                        val previous = pullOffsetPx
+                        pullOffsetPx = (pullOffsetPx + available.y).coerceAtLeast(0f)
+                        if (pullOffsetPx < refreshThresholdPx) {
+                            thresholdReached = false
                         }
+                        return androidx.compose.ui.geometry.Offset(0f, pullOffsetPx - previous)
+                    }
 
+                    return androidx.compose.ui.geometry.Offset.Zero
+                }
+
+                override fun onPostScroll(
+                    consumed: androidx.compose.ui.geometry.Offset,
+                    available: androidx.compose.ui.geometry.Offset,
+                    source: NestedScrollSource
+                ): androidx.compose.ui.geometry.Offset {
+                    if (source != NestedScrollSource.UserInput || uiState.isRefreshing) {
                         return androidx.compose.ui.geometry.Offset.Zero
                     }
 
-                    override fun onPostScroll(
-                            consumed: androidx.compose.ui.geometry.Offset,
-                            available: androidx.compose.ui.geometry.Offset,
-                            source: NestedScrollSource
-                    ): androidx.compose.ui.geometry.Offset {
-                        if (source != NestedScrollSource.UserInput || uiState.isRefreshing) {
-                            return androidx.compose.ui.geometry.Offset.Zero
-                        }
+                    if (available.y > 0f && !listState.canScrollBackward) {
+                        val previous = pullOffsetPx
+                        val resistance =
+                            0.55f - ((previous / maxPullPx).coerceIn(0f, 1f) * 0.2f)
+                        pullOffsetPx =
+                            (previous + available.y * resistance).coerceAtMost(maxPullPx)
 
-                        if (available.y > 0f && !listState.canScrollBackward) {
-                            val previous = pullOffsetPx
-                            val resistance =
-                                    0.55f - ((previous / maxPullPx).coerceIn(0f, 1f) * 0.2f)
-                            pullOffsetPx =
-                                    (previous + available.y * resistance).coerceAtMost(maxPullPx)
-
-                            if (pullOffsetPx >= refreshThresholdPx && !thresholdReached) {
-                                thresholdReached = true
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            } else if (pullOffsetPx < refreshThresholdPx) {
-                                thresholdReached = false
-                            }
-
-                            return androidx.compose.ui.geometry.Offset(0f, available.y)
-                        }
-
-                        return androidx.compose.ui.geometry.Offset.Zero
-                    }
-
-                    override suspend fun onPostFling(
-                            consumed: Velocity,
-                            available: Velocity
-                    ): Velocity {
-                        if (!uiState.isRefreshing && pullOffsetPx >= refreshThresholdPx) {
-                            pullOffsetPx = refreshHoldPx
-                            viewModel.refreshPrayerData()
-                        } else if (!uiState.isRefreshing) {
-                            pullOffsetPx = 0f
+                        if (pullOffsetPx >= refreshThresholdPx && !thresholdReached) {
+                            thresholdReached = true
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        } else if (pullOffsetPx < refreshThresholdPx) {
                             thresholdReached = false
                         }
 
-                        return Velocity.Zero
+                        return androidx.compose.ui.geometry.Offset(0f, available.y)
                     }
+
+                    return androidx.compose.ui.geometry.Offset.Zero
+                }
+
+                override suspend fun onPostFling(
+                    consumed: Velocity,
+                    available: Velocity
+                ): Velocity {
+                    if (!uiState.isRefreshing && pullOffsetPx >= refreshThresholdPx) {
+                        pullOffsetPx = refreshHoldPx
+                        viewModel.refreshPrayerData()
+                    } else if (!uiState.isRefreshing) {
+                        pullOffsetPx = 0f
+                        thresholdReached = false
+                    }
+
+                    return Velocity.Zero
                 }
             }
+        }
 
     Box(modifier = modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize().nestedScroll(pullRefreshConnection)) {
             LazyColumn(
-                    state = listState,
-                    contentPadding =
-                            PaddingValues(
-                                    top = contentPadding.calculateTopPadding() + 22.dp,
-                                    bottom = 0.dp
-                            ),
-                    modifier =
-                            Modifier.fillMaxSize().graphicsLayer {
-                                translationY = animatedPullOffsetPx
-                            }
+                state = listState,
+                contentPadding =
+                    PaddingValues(
+                        top = contentPadding.calculateTopPadding() + 22.dp,
+                        bottom = 0.dp
+                    ),
+                modifier =
+                    Modifier.fillMaxSize().graphicsLayer {
+                        translationY = animatedPullOffsetPx
+                    }
             ) {
                 item {
                     val sunriseTime = (displayPrayers + displayExtraTimings)
                         .firstOrNull {
                             it.name.contains("shuruq", ignoreCase = true) ||
-                            it.name.contains("sunrise", ignoreCase = true)
+                                    it.name.contains("sunrise", ignoreCase = true)
                         }?.time ?: ""
                     val sunsetTime = displayPrayers
                         .firstOrNull { it.name.equals("Maghrib", ignoreCase = true) }
@@ -676,8 +636,6 @@ fun HomeScreen(
                             darkTheme = darkTheme,
                             sunriseTime = sunriseTime,
                             sunsetTime = sunsetTime,
-                            locationLabel = locationLabel,
-                            source = uiState.calculationSource,
                             modifier = Modifier.padding(horizontal = 14.dp)
                         )
                     }
@@ -685,224 +643,110 @@ fun HomeScreen(
 
                 item { Spacer(modifier = Modifier.height(14.dp)) }
 
-                if (uiState.showUpcomingEventsOnHome) {
-                    item {
-                        EventsStrip(
-                                header = displayEventsHeader,
-                                events = displayEvents,
-                                calendarEvents = displayCalendarEvents
-                        )
-                    }
-
-                    item { Spacer(modifier = Modifier.height(14.dp)) }
-                }
 
                 item {
                     PrayerSlab(
-                            prayers = displayPrayers,
-                            extraTimings =
-                                    if (uiState.showExtraPrayerTimingsOnHome) displayExtraTimings
-                                    else emptyList(),
-                            activePrayerName = currentPrayer?.name,
-                            doneStates = doneStates,
-                            onPrayClick = onPrayClick,
-                            onToggleDoneAttempt = { name ->
-                                val prayers = displayPrayers.filterNot { it.isExtra }
-                                val tappedIndex = prayers.indexOfFirst { it.name == name }
-                                if (tappedIndex == -1) {
-                                    PrayerToggleOutcome(PrayerToggleResult.REJECTED_OUT_OF_ORDER)
-                                } else if (doneStates[name] == true) {
-                                    val rewound = doneStates.toMutableMap()
-                                    prayers.drop(tappedIndex).forEach { prayer ->
-                                        rewound[prayer.name] = false
-                                    }
-                                    doneStates = rewound
-                                    PrayerToggleOutcome(PrayerToggleResult.REWOUND)
-                                } else {
-                                    val nextCompletable =
-                                            prayers
-                                                    .firstOrNull { prayer ->
-                                                        !(doneStates[prayer.name] ?: false)
-                                                    }
-                                                    ?.name
-                                    when {
-                                        nextCompletable == null ->
-                                                PrayerToggleOutcome(
-                                                        result =
-                                                                PrayerToggleResult
-                                                                        .REJECTED_TOO_EARLY,
-                                                        guidedPrayerName =
-                                                                prayers
-                                                                        .firstOrNull {
-                                                                            !(doneStates[it.name]
-                                                                                    ?: false)
-                                                                        }
-                                                                        ?.name
-                                                )
-                                        nextCompletable != name ->
-                                                PrayerToggleOutcome(
-                                                        result =
-                                                                PrayerToggleResult
-                                                                        .REJECTED_OUT_OF_ORDER,
-                                                        guidedPrayerName = nextCompletable
-                                                )
-                                        else -> {
-                                            doneStates =
-                                                    doneStates.toMutableMap().apply {
-                                                        this[name] = true
-                                                    }
-                                            PrayerToggleOutcome(PrayerToggleResult.COMPLETED)
-                                        }
-                                    }
-                                }
-                            },
-                            onQuickActionTap = { action ->
-                                when (action) {
-                                    HomeQuickAction.QIBLA -> {
-                                        selectedQuickAction = action
-                                    }
-                                    HomeQuickAction.MOSQUES -> selectedQuickAction = action
-                                    HomeQuickAction.EVENTS -> {
-                                        if (uiState.showUpcomingEventsOnHome) {
-                                            scope.launch { listState.animateScrollToItem(2) }
-                                        } else {
-                                            selectedQuickAction = action
-                                        }
-                                    }
-                                    else -> selectedQuickAction = action
-                                }
-                            },
-                            //                    ayahText = uiState.ayahText,
-                            ayahRef = uiState.ayahRef,
-                            darkTheme = darkTheme,
-                            showQuickActions = showSlabQuickActions,
-                            bottomPadding = contentPadding.calculateBottomPadding(),
-                            modifier = Modifier.fillParentMaxHeight()
+                        prayers = displayPrayers,
+                        extraTimings =
+                            if (uiState.showExtraPrayerTimingsOnHome) displayExtraTimings
+                            else emptyList(),
+                        activePrayerName = currentPrayer?.name,
+                        onQiblaClick = { selectedQuickAction = HomeQuickAction.QIBLA },
+                        //                    ayahText = uiState.ayahText,
+                        ayahRef = uiState.ayahRef,
+                        darkTheme = darkTheme,
+                        locationLabel = uiState.locationLabel,
+                        source = uiState.calculationSource,
+                        bottomPadding = contentPadding.calculateBottomPadding(),
+                        modifier = Modifier.fillParentMaxHeight()
                     )
                 }
             }
 
             KhushuPullRefreshIndicator(
-                    // Lock fill at 100% the instant threshold is reached so there's no
-                    // dip during the async gap before isRefreshing becomes true.
-                    progress = if (thresholdReached || uiState.isRefreshing) 1f else pullProgress,
-                    isRefreshing = uiState.isRefreshing,
-                    darkTheme = darkTheme,
-                    modifier =
-                            Modifier.align(Alignment.TopCenter)
-                                    .padding(top = contentPadding.calculateTopPadding() + 14.dp)
-                                    .size(52.dp)
-                                    .graphicsLayer {
-                                        translationY =
-                                                (animatedPullOffsetPx * 0.22f) -
-                                                        with(density) { 8.dp.toPx() }
-                                    }
+                // Lock fill at 100% the instant threshold is reached so there's no
+                // dip during the async gap before isRefreshing becomes true.
+                progress = if (thresholdReached || uiState.isRefreshing) 1f else pullProgress,
+                isRefreshing = uiState.isRefreshing,
+                darkTheme = darkTheme,
+                modifier =
+                    Modifier.align(Alignment.TopCenter)
+                        .padding(top = contentPadding.calculateTopPadding() + 14.dp)
+                        .size(52.dp)
+                        .graphicsLayer {
+                            translationY =
+                                (animatedPullOffsetPx * 0.22f) -
+                                        with(density) { 8.dp.toPx() }
+                        }
             )
         }
 
         KhushuAppBar(
-                title = "",
-                onSettingsClick = onSettingsClick,
-                centerOverlayContent = { HomeHijriBadge(badge = hijriBadge) },
-                modifier = Modifier.align(Alignment.TopCenter)
+            title = "",
+            onSettingsClick = onSettingsClick,
+            centerOverlayContent = { HomeHijriBadge(badge = hijriBadge) },
+            modifier = Modifier.align(Alignment.TopCenter)
         )
     }
 
-    selectedQuickAction?.let { action ->
-        if (action == HomeQuickAction.QIBLA) {
-            QiblaCompassDialog(
-                bearingDegrees = qiblaBearing,
-                locationLabel = locationLabel,
-                latitude = uiState.locationLat,
-                longitude = uiState.locationLng,
-                onDismiss = { selectedQuickAction = null }
-            )
-            return@let
-        }
-        val title =
-                when (action) {
-                    HomeQuickAction.QIBLA -> "Qibla Direction"
-                    HomeQuickAction.MOSQUES -> "Mosque Directory"
-                    HomeQuickAction.EVENTS -> "Events"
-                }
-        val message =
-                when (action) {
-                    HomeQuickAction.QIBLA ->
-                            "Face ${qiblaBearing.toInt()}° ${compassPointLabel(qiblaBearing)} toward Makkah from ${locationLabel.ifBlank { "your current location" }}."
-                    HomeQuickAction.MOSQUES ->
-                            "Mosque discovery is planned next. This action is intentionally marked as coming soon for now."
-                    HomeQuickAction.EVENTS ->
-                            "Upcoming events are hidden on Home right now. Re-enable them in Prayer settings to jump back here directly."
-                }
-        AlertDialog(
-                onDismissRequest = { selectedQuickAction = null },
-                title = { Text(title) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(message)
-                        if (action == HomeQuickAction.QIBLA) {
-                            Text(
-                                text = "Coordinates: ${"%.4f".format(Locale.US, uiState.locationLat)}, ${"%.4f".format(Locale.US, uiState.locationLng)}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { selectedQuickAction = null }) { Text("Close") }
-                }
+    selectedQuickAction?.let {
+        QiblaCompassDialog(
+            bearingDegrees = qiblaBearing,
+            locationLabel = locationLabel,
+            latitude = uiState.locationLat,
+            longitude = uiState.locationLng,
+            onDismiss = { selectedQuickAction = null }
         )
     }
 
     if (showTimeOverrideDialog) {
         AlertDialog(
-                onDismissRequest = { showTimeOverrideDialog = false },
-                title = { Text("Preview Prayer Time") },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                                "Set a temporary 24-hour clock time to test next prayer and makruh transitions."
-                        )
-                        OutlinedTextField(
-                                value = previewHourText,
-                                onValueChange = {
-                                    previewHourText = it.filter(Char::isDigit).take(2)
-                                },
-                                label = { Text("Hour (0-23)") }
-                        )
-                        OutlinedTextField(
-                                value = previewMinuteText,
-                                onValueChange = {
-                                    previewMinuteText = it.filter(Char::isDigit).take(2)
-                                },
-                                label = { Text("Minute (0-59)") }
-                        )
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                            onClick = {
-                                val hour = previewHourText.toIntOrNull()
-                                val minute = previewMinuteText.toIntOrNull()
-                                if (hour != null && minute != null) {
-                                    viewModel.setPreviewTime(hour, minute)
-                                    showTimeOverrideDialog = false
-                                }
-                            }
-                    ) { Text("Apply") }
-                },
-                dismissButton = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                                onClick = {
-                                    viewModel.clearPreviewTime()
-                                    showTimeOverrideDialog = false
-                                }
-                        ) { Text("Reset") }
-                        TextButton(onClick = { showTimeOverrideDialog = false }) { Text("Close") }
-                    }
+            onDismissRequest = { showTimeOverrideDialog = false },
+            title = { Text("Preview Prayer Time") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Set a temporary 24-hour clock time to test next prayer and makruh transitions."
+                    )
+                    OutlinedTextField(
+                        value = previewHourText,
+                        onValueChange = {
+                            previewHourText = it.filter(Char::isDigit).take(2)
+                        },
+                        label = { Text("Hour (0-23)") }
+                    )
+                    OutlinedTextField(
+                        value = previewMinuteText,
+                        onValueChange = {
+                            previewMinuteText = it.filter(Char::isDigit).take(2)
+                        },
+                        label = { Text("Minute (0-59)") }
+                    )
                 }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val hour = previewHourText.toIntOrNull()
+                        val minute = previewMinuteText.toIntOrNull()
+                        if (hour != null && minute != null) {
+                            viewModel.setPreviewTime(hour, minute)
+                            showTimeOverrideDialog = false
+                        }
+                    }
+                ) { Text("Apply") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.clearPreviewTime()
+                            showTimeOverrideDialog = false
+                        }
+                    ) { Text("Reset") }
+                    TextButton(onClick = { showTimeOverrideDialog = false }) { Text("Close") }
+                }
+            }
         )
     }
 }

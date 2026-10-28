@@ -24,7 +24,6 @@ import com.kaizen.khushu.ui.components.KhushuLogoBadge
 @Composable
 fun CustomizeScreen(
     settingsViewModel: SettingsViewModel,
-    onNavigateSalah: () -> Unit,
     onNavigateTasbeeh: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -51,16 +50,8 @@ fun CustomizeScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsGroup(
-                title = "Prayer experience",
-//                description = "Tune the guided prayer screen and tasbih counter behavior."
+                title = "Tasbih experience",
             ) {
-                SettingsMenuItem(
-                    title = "Pray Screen",
-                    subtitle = "Session controls, completion text, and layout editor",
-                    iconRes = com.kaizen.khushu.R.drawable.ic_salah,
-                    onClick = onNavigateSalah
-                )
-
                 SettingsMenuItem(
                     title = "Tasbih Screen",
                     subtitle = "Layout editor, bead style, and interaction behavior",
@@ -91,9 +82,9 @@ private data class LogoStyleOption(val key: String, val label: String)
 
 private val logoStyleOptions = listOf(
     LogoStyleOption("DYNAMIC", "Dynamic"),
-    LogoStyleOption("DARK",    "Dark"),
-    LogoStyleOption("LIGHT",   "Light"),
-    LogoStyleOption("GREEN",   "Islamic Green"),
+    LogoStyleOption("DARK", "Dark"),
+    LogoStyleOption("LIGHT", "Light"),
+    LogoStyleOption("GREEN", "Islamic Green"),
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -131,7 +122,7 @@ private fun LogoStyleCard(
         MaterialTheme.colorScheme.primary
     else
         Color.Transparent
-    
+
     val containerColor = if (isSelected)
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
     else

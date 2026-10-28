@@ -2,6 +2,7 @@ package com.kaizen.khushu.ui.screens.quran
 
 import android.widget.Toast
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -47,6 +49,9 @@ import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import com.kaizen.khushu.ui.theme.ScheherazadeNew
 import com.kaizen.khushu.ui.theme.rememberArabicScriptFontFamily
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // ── Theme helpers ──────────────────────────────────────────────────────────────
 
@@ -55,7 +60,7 @@ private val ThemePaper = Color(0xFFF5E6C8)
 private val ThemeLight = Color.White
 
 @Composable
-private fun bgColor(theme: String) : Color {
+private fun bgColor(theme: String): Color {
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
     return when (theme) {
         "DARK" -> ThemeDark
@@ -66,7 +71,7 @@ private fun bgColor(theme: String) : Color {
 }
 
 @Composable
-private fun contentColor(theme: String) : Color {
+private fun contentColor(theme: String): Color {
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
     return when (theme) {
         "DARK" -> Color.White
@@ -79,13 +84,13 @@ private fun contentColor(theme: String) : Color {
 private fun readingColorScheme(readingTheme: String, dynamicColor: Boolean): ColorScheme {
     val context = LocalContext.current
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val isDark = when(readingTheme) {
+    val isDark = when (readingTheme) {
         "DARK" -> true
         "LIGHT" -> false
         "PAPER" -> false
         else -> isSystemDark
     }
-    
+
     return when {
         isDark && dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> dynamicDarkColorScheme(context)
         isDark -> darkColorScheme()
@@ -172,6 +177,10 @@ fun QuranReaderScreen(
     val reflections by viewModel.reflections
     val reflectionsLoading by viewModel.reflectionsLoading
     val settings by settingsViewModel.settings.collectAsState()
+    var bookmarkedAyahKeys by remember(surahNumber) { mutableStateOf(settings.bookmarkedAyahs) }
+    LaunchedEffect(settings.bookmarkedAyahs) {
+        bookmarkedAyahKeys = settings.bookmarkedAyahs
+    }
     val availableQuranScripts by settingsViewModel.availableQuranScripts.collectAsState()
     val downloadingQuranScript by settingsViewModel.downloadingQuranScript.collectAsState()
     val quranScriptDownloadProgress by settingsViewModel.quranScriptDownloadProgress.collectAsState()
@@ -179,6 +188,33 @@ fun QuranReaderScreen(
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     val listState = rememberLazyListState()
+    val currentAyahIndex by remember(listState, ayahs.size) {
+        derivedStateOf {
+            if (ayahs.isEmpty()) 0
+            else (listState.firstVisibleItemIndex - 1).coerceIn(0, ayahs.lastIndex)
+        }
+    }
+    var lastTappedAyahIndex by remember(surahNumber) { mutableStateOf<Int?>(null) }
+    var showExitReminder by remember { mutableStateOf(false) }
+    var dontShowExitReminderAgain by remember { mutableStateOf(false) }
+    val exitScope = rememberCoroutineScope()
+    val attemptExit = {
+        val exitAyahIndex = lastTappedAyahIndex ?: currentAyahIndex
+        val bookmarkKey = "quran_surah_$surahNumber:$exitAyahIndex"
+        exitScope.launch {
+            val latestSettings = settingsViewModel.getLatestSettings()
+            if (latestSettings.quranExitReminderDisabled || latestSettings.bookmarkedAyahs.contains(bookmarkKey)) {
+                onBack()
+            } else {
+                dontShowExitReminderAgain = false
+                showExitReminder = true
+            }
+        }
+    }
+    BackHandler {
+        if (showExitReminder) showExitReminder = false else attemptExit()
+    }
+    val translationDownloadScope = rememberCoroutineScope()
     val arabicScriptFontFamily = rememberArabicScriptFontFamily(settings.selectedScript, availableQuranScripts)
 
     val playingAyahIndex by quranAudioViewModel.playingAyahIndex
@@ -212,7 +248,7 @@ fun QuranReaderScreen(
                     }
                     return androidx.compose.ui.geometry.Offset(0f, available.y)
                 }
-                
+
                 // INSTANT ABORT: If user swipes down while bar is showing, reset to 0
                 if (available.y > 0f && overscrollState.floatValue > 0f) {
                     overscrollState.floatValue = 0f
@@ -257,6 +293,8 @@ fun QuranReaderScreen(
     var showSettings by remember { mutableStateOf(false) }
     var showTranslationPicker by remember { mutableStateOf(false) }
     var showTafsirPicker by remember { mutableStateOf(false) }
+    var isTranslationDownloading by remember { mutableStateOf(false) }
+    var translationDownloadProgress by remember { mutableFloatStateOf(0f) }
     // "verse_by_verse" or "reading"
     var readingMode by remember { mutableStateOf("verse_by_verse") }
 
@@ -351,7 +389,7 @@ fun QuranReaderScreen(
                             }
                         },
                         navigationIcon = {
-                            IconButton(onClick = onBack) {
+                            IconButton(onClick = { attemptExit() }) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
@@ -366,15 +404,26 @@ fun QuranReaderScreen(
                                 } else if (audioState == QuranAudioViewModel.AudioState.Paused) {
                                     quranAudioViewModel.resume()
                                 } else {
-                                    val url = QuranAudioRepository.getUrl(context, settings.selectedReciterId, surahNumber)
+                                    val url =
+                                        QuranAudioRepository.getUrl(context, settings.selectedReciterId, surahNumber)
                                     if (url != null) {
                                         quranAudioViewModel.playSurah(surahNumber, url, settings.selectedReciterId)
                                     }
                                 }
                             }) {
                                 when (audioState) {
-                                    is QuranAudioViewModel.AudioState.Playing -> Icon(Icons.Default.Pause, "Pause", tint = fg.copy(alpha = 0.7f))
-                                    is QuranAudioViewModel.AudioState.Loading -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = fg.copy(alpha = 0.7f))
+                                    is QuranAudioViewModel.AudioState.Playing -> Icon(
+                                        Icons.Default.Pause,
+                                        "Pause",
+                                        tint = fg.copy(alpha = 0.7f)
+                                    )
+
+                                    is QuranAudioViewModel.AudioState.Loading -> CircularProgressIndicator(
+                                        modifier = Modifier.size(
+                                            20.dp
+                                        ), strokeWidth = 2.dp, color = fg.copy(alpha = 0.7f)
+                                    )
+
                                     else -> Icon(Icons.Default.PlayArrow, "Play", tint = fg.copy(alpha = 0.7f))
                                 }
                             }
@@ -399,7 +448,9 @@ fun QuranReaderScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = paddingValues.calculateTopPadding()),
-                    color = if (settings.readingTheme == "DARK") Color.Black else if (settings.readingTheme == "PAPER") Color(0xFFFBF4E9) else MaterialTheme.colorScheme.surface,
+                    color = if (settings.readingTheme == "DARK") Color.Black else if (settings.readingTheme == "PAPER") Color(
+                        0xFFFBF4E9
+                    ) else MaterialTheme.colorScheme.surface,
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                 ) {
                     if (isLoading) {
@@ -438,7 +489,7 @@ fun QuranReaderScreen(
                                             ),
                                             modifier = Modifier.padding(top = 8.dp)
                                         )
-                                        
+
                                         Row(
                                             modifier = Modifier.padding(top = 12.dp),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -461,7 +512,7 @@ fun QuranReaderScreen(
                                                 color = fg.copy(alpha = 0.6f)
                                             )
                                         }
-                                        
+
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -474,7 +525,7 @@ fun QuranReaderScreen(
                                             )
                                         }
                                     }
-                                    
+
                                     // Show Bismillah for all surahs except At-Tawbah (9)
                                     // and NOT for Al-Fatihah (1) since bismillah is its first verse
                                     if (surahNumber != 9 && surahNumber != 1) {
@@ -494,7 +545,8 @@ fun QuranReaderScreen(
                             itemsIndexed(blocks) { index, block ->
                                 val ayahNum = block.ayah
                                 val meta = viewModel.verseMeta.value["$surahNumber:$ayahNum"]
-                                val prevMeta = if (ayahNum > 1) viewModel.verseMeta.value["$surahNumber:${ayahNum - 1}"] else null
+                                val prevMeta =
+                                    if (ayahNum > 1) viewModel.verseMeta.value["$surahNumber:${ayahNum - 1}"] else null
                                 val showJuzHeader = meta != null && (prevMeta == null || prevMeta.juz != meta.juz)
 
                                 Column {
@@ -506,11 +558,12 @@ fun QuranReaderScreen(
                                     }
 
                                     val topicId = "quran_surah_$surahNumber"
-                                    val isBookmarked = settings.bookmarkedAyahs.contains("$topicId:$index")
+                                    val bookmarkKey = "$topicId:$index"
+                                    val isBookmarked = bookmarkKey in bookmarkedAyahKeys
                                     val translationMap = remember(translations) {
                                         translations.mapKeys { it.key.toString() }
                                     }
-                                    
+
                                     BlockRenderer(
                                         block = block,
                                         settings = settings,
@@ -520,14 +573,27 @@ fun QuranReaderScreen(
                                         scriptMap = scriptMap,
                                         arabicFontFamily = arabicScriptFontFamily,
                                         isHighlighted = playingAyahIndex == index,
+                                        isBookmarked = isBookmarked,
                                         readingMode = readingMode,
                                         source = ContentSource.QF,
                                         onBlockClick = { activeBlock = it to index },
                                         onPlayClick = {
-                                            quranAudioViewModel.playAyah(surahNumber, index, blocks, settings.selectedReciterId, sequence = false)
+                                            quranAudioViewModel.playAyah(
+                                                surahNumber,
+                                                index,
+                                                blocks,
+                                                settings.selectedReciterId,
+                                                sequence = false
+                                            )
                                         },
                                         onBookmarkClick = {
                                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                            lastTappedAyahIndex = index
+                                            bookmarkedAyahKeys = if (isBookmarked) {
+                                                bookmarkedAyahKeys - bookmarkKey
+                                            } else {
+                                                bookmarkedAyahKeys + bookmarkKey
+                                            }
                                             settingsViewModel.toggleBookmark(topicId, index)
                                             val msg = if (isBookmarked) "Bookmark removed" else "Bookmark added"
                                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
@@ -545,6 +611,31 @@ fun QuranReaderScreen(
                                             viewModel.loadReflections(block.surah, block.ayah)
                                         },
                                     )
+                                    val ayahAudioError = audioState as? QuranAudioViewModel.AudioState.Error
+                                    if (playingAyahIndex == index && ayahAudioError != null) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                ayahAudioError.msg,
+                                                modifier = Modifier.weight(1f),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = fg.copy(alpha = 0.7f)
+                                            )
+                                            TextButton(onClick = {
+                                                quranAudioViewModel.playAyah(
+                                                    surahNumber,
+                                                    index,
+                                                    blocks,
+                                                    settings.selectedReciterId,
+                                                    sequence = false
+                                                )
+                                            }) {
+                                                Text("Retry")
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
@@ -574,7 +665,9 @@ fun QuranReaderScreen(
                                                 CircularProgressIndicator(
                                                     progress = { fillProgress },
                                                     modifier = Modifier.fillMaxSize(),
-                                                    color = if (isArmed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                                    color = if (isArmed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(
+                                                        alpha = 0.2f
+                                                    ),
                                                     strokeWidth = 3.dp,
                                                     strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
                                                 )
@@ -612,7 +705,8 @@ fun QuranReaderScreen(
                         if (activeBlock != null) {
                             val (block, index) = activeBlock!!
                             val topicId = "quran_surah_$surahNumber"
-                            val isBookmarked = settings.bookmarkedAyahs.contains("$topicId:$index")
+                            val bookmarkKey = "$topicId:$index"
+                            val isBookmarked = bookmarkKey in bookmarkedAyahKeys
 
                             BlockActionSheet(
                                 block = block,
@@ -622,17 +716,35 @@ fun QuranReaderScreen(
                                 onDismiss = { activeBlock = null },
                                 onBookmark = {
                                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                    lastTappedAyahIndex = index
+                                    bookmarkedAyahKeys = if (isBookmarked) {
+                                        bookmarkedAyahKeys - bookmarkKey
+                                    } else {
+                                        bookmarkedAyahKeys + bookmarkKey
+                                    }
                                     settingsViewModel.toggleBookmark(topicId, index)
                                     val msg = if (isBookmarked) "Bookmark removed" else "Bookmark added"
                                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     activeBlock = null
                                 },
                                 onPlayAyah = {
-                                    quranAudioViewModel.playAyah(surahNumber, index, blocks, settings.selectedReciterId, sequence = false)
+                                    quranAudioViewModel.playAyah(
+                                        surahNumber,
+                                        index,
+                                        blocks,
+                                        settings.selectedReciterId,
+                                        sequence = false
+                                    )
                                     activeBlock = null
                                 },
                                 onPlayFromHere = {
-                                    quranAudioViewModel.playAyah(surahNumber, index, blocks, settings.selectedReciterId, sequence = true)
+                                    quranAudioViewModel.playAyah(
+                                        surahNumber,
+                                        index,
+                                        blocks,
+                                        settings.selectedReciterId,
+                                        sequence = true
+                                    )
                                     activeBlock = null
                                 }
                             )
@@ -643,7 +755,8 @@ fun QuranReaderScreen(
 
             if (showSettings) {
                 val reciterDownloadStates = AVAILABLE_RECITERS.associate { reciter ->
-                    reciter.id to quranAudioViewModel.getReciterDownloadProgress(reciter.id).collectAsState(initial = null).value
+                    reciter.id to quranAudioViewModel.getReciterDownloadProgress(reciter.id)
+                        .collectAsState(initial = null).value
                 }
 
                 ReadingSettingsSheet(
@@ -685,12 +798,15 @@ fun QuranReaderScreen(
             }
 
             if (showTranslationPicker) {
-                val translationViewModel: com.kaizen.khushu.ui.screens.learn.LearnReadingViewModel = viewModel()
                 TranslationPickerSheet(
                     selectedId = settings.selectedTranslationLang,
-                    selectedSource = try { ContentSource.valueOf(settings.selectedTranslationSource) } catch (e: Exception) { ContentSource.FAWAZ },
-                    isDownloading = translationViewModel.isDownloading.value,
-                    progress = translationViewModel.downloadProgress.floatValue,
+                    selectedSource = try {
+                        ContentSource.valueOf(settings.selectedTranslationSource)
+                    } catch (e: Exception) {
+                        ContentSource.FAWAZ
+                    },
+                    isDownloading = isTranslationDownloading,
+                    progress = translationDownloadProgress,
                     onSelectSource = { source ->
                         settingsViewModel.setSelectedTranslationSource(source.name)
                     },
@@ -698,10 +814,22 @@ fun QuranReaderScreen(
                         if (TranslationRepository.isDownloaded(context, meta.id)) {
                             settingsViewModel.setSelectedTranslationLang(meta.id)
                             showTranslationPicker = false
-                        } else {
-                            translationViewModel.downloadTranslation(context, meta) {
-                                settingsViewModel.setSelectedTranslationLang(meta.id)
-                                showTranslationPicker = false
+                        } else if (!isTranslationDownloading) {
+                            translationDownloadScope.launch {
+                                isTranslationDownloading = true
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        TranslationRepository.download(context, meta.id, meta.downloadUrl) { progress ->
+                                            translationDownloadProgress = progress
+                                        }
+                                        TranslationRepository.load(context, meta.id)
+                                    }
+                                    settingsViewModel.setSelectedTranslationLang(meta.id)
+                                    showTranslationPicker = false
+                                } finally {
+                                    isTranslationDownloading = false
+                                    translationDownloadProgress = 0f
+                                }
                             }
                         }
                     },
@@ -712,7 +840,11 @@ fun QuranReaderScreen(
             if (showTafsirPicker) {
                 TafsirPickerSheet(
                     selectedTafsirId = settings.selectedTafsirId,
-                    selectedSource = try { ContentSource.valueOf(settings.selectedTafsirSource) } catch (e: Exception) { ContentSource.SPA5K },
+                    selectedSource = try {
+                        ContentSource.valueOf(settings.selectedTafsirSource)
+                    } catch (e: Exception) {
+                        ContentSource.SPA5K
+                    },
                     currentSurah = surahNumber,
                     isDownloading = isTafsirDownloading,
                     progress = tafsirDownloadProgress,
@@ -721,7 +853,12 @@ fun QuranReaderScreen(
                         settingsViewModel.setSelectedTafsir(settings.selectedTafsirId, source.name)
                     },
                     onSelect = { meta ->
-                        if (com.kaizen.khushu.data.repository.TafsirRepository.isDownloaded(context, meta.id, surahNumber)) {
+                        if (com.kaizen.khushu.data.repository.TafsirRepository.isDownloaded(
+                                context,
+                                meta.id,
+                                surahNumber
+                            )
+                        ) {
                             settingsViewModel.setSelectedTafsir(meta.id, meta.source.name)
                             showTafsirPicker = false
                         } else {
@@ -757,6 +894,55 @@ fun QuranReaderScreen(
                     onDismiss = { activeVerseForSheet = null },
                     arabicSizeSp = settings.arabicSizeSp,
                     translationSizeSp = settings.translationSizeSp,
+                )
+            }
+
+            if (showExitReminder) {
+                AlertDialog(
+                    onDismissRequest = { showExitReminder = false },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Bookmark, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Not bookmarked")
+                        }
+                    },
+                    text = {
+                        Column {
+                            Text("You haven't bookmarked anything. Are you sure you want to exit?")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = dontShowExitReminderAgain,
+                                    onCheckedChange = { dontShowExitReminderAgain = it }
+                                )
+                                Text("Don't show this again")
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            if (dontShowExitReminderAgain) {
+                                settingsViewModel.setQuranExitReminderDisabled(true)
+                            }
+                            showExitReminder = false
+                            onBack()
+                        }) {
+                            Text("Yes, exit")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            if (dontShowExitReminderAgain) {
+                                settingsViewModel.setQuranExitReminderDisabled(true)
+                            }
+                            showExitReminder = false
+                        }) {
+                            Text("Stay")
+                        }
+                    }
                 )
             }
         }

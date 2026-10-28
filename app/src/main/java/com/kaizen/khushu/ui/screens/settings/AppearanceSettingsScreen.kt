@@ -153,6 +153,14 @@ fun AppearanceSettingsScreen(
                     onCheckedChange = viewModel::toggleKeepScreenAwake
                 )
 
+                SettingsToggleItem(
+                    title = "Show exit reminder for unbookmarked Quran",
+                    checked = !settings.quranExitReminderDisabled,
+                    onCheckedChange = { enabled ->
+                        viewModel.setQuranExitReminderDisabled(!enabled)
+                    }
+                )
+
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                     Text(
                         text = "Startup screen",
@@ -175,9 +183,8 @@ fun AppearanceSettingsScreen(
                     ) {
                         listOf(
                             "Home" to AppDestinations.HOME.route,
-                            "Pray" to AppDestinations.SALAH.route,
                             "Tasbih" to AppDestinations.TASBEEH.route,
-                            "Study" to AppDestinations.LEARN.route
+                            "Quran" to AppDestinations.QURAN.route
                         ).forEach { (label, route) ->
                             FilterChip(
                                 selected = settings.startupTab == route,

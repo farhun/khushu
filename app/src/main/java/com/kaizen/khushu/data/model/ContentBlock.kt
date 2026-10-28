@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Polymorphic sealed class for Learn topic content blocks.
+ * Polymorphic content blocks shared by Quran reading features.
  *
  * JSON discriminator field is "type" (default for kotlinx.serialization).
  * Each subclass uses @SerialName matching the "type" value in JSON.
@@ -71,13 +71,3 @@ data class ArabicBlock(
     val tajweed: String? = null,
     val translation: String = "",
 ) : ContentBlock()
-
-// ── JSON wrapper ───────────────────────────────────────────────────────────────
-
-@Serializable
-data class TopicJson(
-    val id: String,
-    val title: String,
-    val version: Int = 1,
-    val blocks: List<ContentBlock>,
-)

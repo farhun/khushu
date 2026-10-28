@@ -2,52 +2,57 @@
 
 package com.kaizen.khushu.ui.screens.home
 
+import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kaizen.khushu.data.repository.extraPrayerTimingArabicLabel
 import com.kaizen.khushu.data.repository.extraPrayerTimingShortLabel
-import com.kaizen.khushu.data.repository.IslamicEventsRepository
+
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.logic.PrayerManager
+import com.kaizen.khushu.ui.screens.settings.SettingsViewModel
+import com.kaizen.khushu.widget.PrayerWidgetProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Instant
 import java.text.SimpleDateFormat
 import java.time.chrono.HijrahDate
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoField
-import java.time.temporal.ChronoUnit
+
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.coroutines.resume
 import androidx.lifecycle.ViewModelProvider
 
 class HomeViewModel(
     private val settingsRepository: SettingsRepository,
     private val prayerTimeRepository: PrayerTimeRepository,
-    private val islamicEventsRepository: IslamicEventsRepository,
     val prayerManager: PrayerManager,
+    private val settingsViewModel: SettingsViewModel,
+    private val appContext: Context,
 ) : ViewModel() {
 
     private val _previewTimeMillis = MutableStateFlow<Long?>(null)
     private val _isRefreshing = MutableStateFlow(false)
     private val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
-    
+
     private var refreshStartedAtMillis = 0L
 
-    private suspend fun completeRefreshWithMinimumDuration() {
+    private suspend fun waitForMinimumRefreshDuration() {
         val remaining = MIN_REFRESH_DURATION_MS - (System.currentTimeMillis() - refreshStartedAtMillis)
-        if (remaining > 0L) {
-            delay(remaining)
-        }
-        _isRefreshing.value = false
+        if (remaining > 0L) delay(remaining)
     }
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -133,43 +138,58 @@ class HomeViewModel(
 
         val mappedPrayers = listOf(
             PrayerInfo(
-                name = "Fajr", ar = "الفجر",
+                name = "Fajr",
+                ar = "الفجر",
                 time = formatInstant(adjustedFajr),
-                hour = fajrHr, minute = fajrMin,
+                hour = fajrHr,
+                minute = fajrMin,
                 arcT = tToArc(adjustedFajr.toEpochMilliseconds()),
-                dotColorLight = androidx.compose.ui.graphics.Color(0xFF4a70b0), dotColorDark = androidx.compose.ui.graphics.Color(0xFF6890d8),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFF4a70b0),
+                dotColorDark = androidx.compose.ui.graphics.Color(0xFF6890d8),
                 rawTime = adjustedFajr
             ),
             PrayerInfo(
-                name = "Dhuhr", ar = "الظهر",
+                name = "Dhuhr",
+                ar = "الظهر",
                 time = formatInstant(adjustedDhuhr),
-                hour = dhuhrHr, minute = dhuhrMin,
+                hour = dhuhrHr,
+                minute = dhuhrMin,
                 arcT = tToArc(adjustedDhuhr.toEpochMilliseconds()),
-                dotColorLight = androidx.compose.ui.graphics.Color(0xFFa87010), dotColorDark = androidx.compose.ui.graphics.Color(0xFFd4a828),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFFa87010),
+                dotColorDark = androidx.compose.ui.graphics.Color(0xFFd4a828),
                 rawTime = adjustedDhuhr
             ),
             PrayerInfo(
-                name = "Asr", ar = "العصر",
+                name = "Asr",
+                ar = "العصر",
                 time = formatInstant(adjustedAsr),
-                hour = asrHr, minute = asrMin,
+                hour = asrHr,
+                minute = asrMin,
                 arcT = tToArc(adjustedAsr.toEpochMilliseconds()),
-                dotColorLight = androidx.compose.ui.graphics.Color(0xFFa06020), dotColorDark = androidx.compose.ui.graphics.Color(0xFFd08840),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFFa06020),
+                dotColorDark = androidx.compose.ui.graphics.Color(0xFFd08840),
                 rawTime = adjustedAsr
             ),
             PrayerInfo(
-                name = "Maghrib", ar = "المغرب",
+                name = "Maghrib",
+                ar = "المغرب",
                 time = formatInstant(adjustedMaghrib),
-                hour = maghribHr, minute = maghribMin,
+                hour = maghribHr,
+                minute = maghribMin,
                 arcT = tToArc(adjustedMaghrib.toEpochMilliseconds()),
-                dotColorLight = androidx.compose.ui.graphics.Color(0xFF9a3828), dotColorDark = androidx.compose.ui.graphics.Color(0xFFe06050),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFF9a3828),
+                dotColorDark = androidx.compose.ui.graphics.Color(0xFFe06050),
                 rawTime = adjustedMaghrib
             ),
             PrayerInfo(
-                name = "Isha", ar = "العشاء",
+                name = "Isha",
+                ar = "العشاء",
                 time = formatInstant(adjustedIsha),
-                hour = ishaHr, minute = ishaMin,
+                hour = ishaHr,
+                minute = ishaMin,
                 arcT = tToArc(adjustedIsha.toEpochMilliseconds()),
-                dotColorLight = androidx.compose.ui.graphics.Color(0xFF584898), dotColorDark = androidx.compose.ui.graphics.Color(0xFF9070d0),
+                dotColorLight = androidx.compose.ui.graphics.Color(0xFF584898),
+                dotColorDark = androidx.compose.ui.graphics.Color(0xFF9070d0),
                 rawTime = adjustedIsha
             )
         )
@@ -236,104 +256,12 @@ class HomeViewModel(
             val formatter = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy")
             todayHijri?.format(formatter).orEmpty()
         }.getOrDefault("")
-        val currentMonth = todayHijri?.get(java.time.temporal.ChronoField.MONTH_OF_YEAR) ?: 0
-        val currentDay = todayHijri?.get(java.time.temporal.ChronoField.DAY_OF_MONTH) ?: 0
-        val currentYear = todayHijri?.get(java.time.temporal.ChronoField.YEAR) ?: 0
-
-        fun mapEvent(ev: com.kaizen.khushu.data.repository.IslamicCalendarEvent): IslamicEvent {
-            val detailDate = if (ev.day == ev.endDay) {
-                "${ev.day} ${ev.monthNameEnglish}"
-            } else {
-                "${ev.day}-${ev.endDay} ${ev.monthNameEnglish}"
-            }
-            val isPastInCurrentMonth = ev.month == currentMonth && ev.endDay < currentDay
-            val isTodayEvent = ev.month == currentMonth && currentDay in ev.day..ev.endDay
-
-            val dateLabel = if (isPastInCurrentMonth) {
-                ""
-            } else {
-                val eventYear = if (
-                    todayHijri != null &&
-                    (ev.month < currentMonth || (ev.month == currentMonth && ev.day < currentDay))
-                ) {
-                    currentYear + 1
-                } else {
-                    currentYear
-                }
-
-                val eventDate = try {
-                    todayHijri
-                        ?.with(java.time.temporal.ChronoField.YEAR, eventYear.toLong())
-                        ?.with(java.time.temporal.ChronoField.MONTH_OF_YEAR, ev.month.toLong())
-                        ?.with(java.time.temporal.ChronoField.DAY_OF_MONTH, ev.day.toLong())
-                } catch (e: Exception) {
-                    todayHijri
-                }
-
-                val daysBetween = if (todayHijri != null && eventDate != null) {
-                    java.time.temporal.ChronoUnit.DAYS.between(todayHijri, eventDate)
-                } else {
-                    0L
-                }
-
-                when (daysBetween) {
-                    0L -> "Today"
-                    1L -> "Tomorrow"
-                    else -> "in $daysBetween days"
-                }
-            }
-
-            return IslamicEvent(
-                month = ev.month,
-                monthNameEnglish = ev.monthNameEnglish,
-                day = ev.day,
-                endDay = ev.endDay,
-                label = dateLabel,
-                date = if (dateLabel.isBlank()) detailDate else "$dateLabel | $detailDate",
-                name = ev.title,
-                description = ev.description,
-                notes = ev.notes,
-                detailDate = detailDate,
-                isToday = isTodayEvent,
-            )
-        }
-
-        val currentMonthName = islamicEventsRepository.getAllEvents(settings.islamicEventPerspective)
-            .firstOrNull { it.month == currentMonth }
-            ?.monthNameEnglish
-            ?: getMonthName(currentMonth)
-        val currentMonthEvents = runCatching {
-            islamicEventsRepository.getEventsForMonth(currentMonth, settings.islamicEventPerspective)
-                .map(::mapEvent)
-                .let { monthEvents ->
-                    val activeIndex = monthEvents.indexOfFirst { currentDay in it.day..it.endDay }
-                        .takeIf { it >= 0 }
-                        ?: monthEvents.indexOfFirst { it.day > currentDay }
-                            .takeIf { it >= 0 }
-                        ?: monthEvents.lastIndex
-
-                    monthEvents.mapIndexed { index, event ->
-                        event.copy(isActive = index == activeIndex)
-                    }
-                }
-        }.getOrDefault(emptyList())
-        val calendarEvents = runCatching {
-            islamicEventsRepository.getAllEvents(settings.islamicEventPerspective)
-                .map(::mapEvent)
-        }.getOrDefault(emptyList())
-        val eventsHeader = if (currentYear > 0) {
-            "UPCOMING · ${currentMonthName.uppercase(Locale.getDefault())} $currentYear"
-        } else {
-            "UPCOMING EVENTS"
-        }
 
         HomeUiState(
             prayers = mappedPrayers,
             extraTimings = mappedExtraTimings,
             makruhZones = listOf(makruhSunrise, makruhZawal, makruhSunset),
-            events = currentMonthEvents,
-            calendarEvents = calendarEvents,
-            eventsHeader = eventsHeader,
+
             hijriDate = formattedHijri,
             isRefreshing = isRefreshing,
             usingPreviewTime = usingPreviewTime,
@@ -343,8 +271,7 @@ class HomeViewModel(
             locationLng = settings.locationLng,
             locationLabel = settings.locationLabel,
             calculationSource = if (isApiSource) CalculationSource.API else CalculationSource.LOCAL,
-            showExtraPrayerTimingsOnHome = settings.showExtraPrayerTimingsOnHome,
-            showUpcomingEventsOnHome = settings.showUpcomingEventsOnHome
+            showExtraPrayerTimingsOnHome = settings.showExtraPrayerTimingsOnHome
         )
     }.stateIn(
         scope = viewModelScope,
@@ -353,14 +280,40 @@ class HomeViewModel(
     )
 
 
-
     fun refreshPrayerData() {
+        if (_isRefreshing.value) return
         refreshStartedAtMillis = System.currentTimeMillis()
         _isRefreshing.value = true
         viewModelScope.launch {
-            settingsRepository.updateLastPrayerRefresh(System.currentTimeMillis())
-            if (uiState.value.calculationSource == CalculationSource.LOCAL && _isRefreshing.value) {
-                completeRefreshWithMinimumDuration()
+            try {
+                var location: Pair<Float, Float>? = null
+                try {
+                    val settings = settingsRepository.settingsFlow.first()
+                    if (settings.useGpsLocation) {
+                        location = withTimeoutOrNull(LOCATION_REFRESH_TIMEOUT_MS) {
+                            suspendCancellableCoroutine { continuation ->
+                                settingsViewModel.refreshLocation { result ->
+                                    if (continuation.isActive) continuation.resume(result)
+                                }
+                            }
+                        }
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // Continue with the last saved coordinates if GPS lookup fails.
+                }
+                settingsRepository.updateLocationAndPrayerRefresh(System.currentTimeMillis(), location)
+            } finally {
+                try {
+                    PrayerWidgetProvider.forceWidgetRefresh(appContext)
+                } finally {
+                    try {
+                        waitForMinimumRefreshDuration()
+                    } finally {
+                        _isRefreshing.value = false
+                    }
+                }
             }
         }
     }
@@ -380,27 +333,28 @@ class HomeViewModel(
         _previewTimeMillis.value = null
     }
 
-    private fun getMonthName(month: Int): String {
-        return listOf(
-            "Muharram", "Safar", "Rabi' al-Awwal", "Rabi' al-Thani",
-            "Jumada al-Awwal", "Jumada al-Thani", "Rajab", "Sha'ban",
-            "Ramadan", "Shawwal", "Dhu al-Qi'dah", "Dhu al-Hijjah"
-        ).getOrElse(month - 1) { "Unknown" }
-    }
 
     companion object {
         private const val MIN_REFRESH_DURATION_MS = 700L
+        private const val LOCATION_REFRESH_TIMEOUT_MS = 10_000L
 
         fun factory(
             settingsRepository: SettingsRepository,
             prayerTimeRepository: PrayerTimeRepository,
-            islamicEventsRepository: IslamicEventsRepository,
             prayerManager: PrayerManager,
+            settingsViewModel: SettingsViewModel,
+            appContext: Context,
         ): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                    return HomeViewModel(settingsRepository, prayerTimeRepository, islamicEventsRepository, prayerManager) as T
+                    return HomeViewModel(
+                        settingsRepository,
+                        prayerTimeRepository,
+                        prayerManager,
+                        settingsViewModel,
+                        appContext
+                    ) as T
                 }
                 throw IllegalArgumentException("Unknown ViewModel class")
             }

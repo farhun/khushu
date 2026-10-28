@@ -4,21 +4,29 @@ import android.app.Application
 import android.content.Context
 import android.media.AudioAttributes
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.asFlow
+import androidx.lifecycle.viewModelScope
 import androidx.work.*
 import com.kaizen.khushu.data.model.AyahBlock
 import com.kaizen.khushu.data.model.ContentBlock
 import com.kaizen.khushu.data.repository.QuranAudioRepository
 import com.kaizen.khushu.data.worker.QuranAudioWorker
 import java.io.File
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class QuranAudioViewModel(application: Application) : AndroidViewModel(application) {
+    private companion object {
+        const val AYAH_LOADING_TIMEOUT_MS = 15_000L
+    }
 
     sealed interface AudioState {
         data object Idle : AudioState
@@ -31,30 +39,48 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
     val audioState = mutableStateOf<AudioState>(AudioState.Idle)
     val currentSurah = mutableStateOf<Int?>(null)
     val playingAyahIndex = mutableStateOf<Int?>(null)
-    
+
     private var mediaController: MediaController? = null
-    
+    private var ayahLoadingTimeoutJob: Job? = null
+    private var ayahLoadAttempt = 0L
+    private var isAyahPlayback = false
+
     fun setController(controller: MediaController?) {
         this.mediaController = controller
         controller?.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 when (state) {
                     Player.STATE_BUFFERING -> audioState.value = AudioState.Loading
-                    Player.STATE_READY -> audioState.value = AudioState.Playing
+                    Player.STATE_READY -> {
+                        cancelAyahLoadingTimeout()
+                        audioState.value = AudioState.Playing
+                    }
+
                     Player.STATE_ENDED -> handleAyahCompletion()
-                    Player.STATE_IDLE -> audioState.value = AudioState.Idle
+                    Player.STATE_IDLE -> {
+                        if (audioState.value !is AudioState.Error) audioState.value = AudioState.Idle
+                    }
                 }
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                if (playWhenReady) audioState.value = AudioState.Playing
-                else audioState.value = AudioState.Paused
+                if (playWhenReady) {
+                    cancelAyahLoadingTimeout()
+                    audioState.value = AudioState.Playing
+                } else if (audioState.value !is AudioState.Error) {
+                    audioState.value = AudioState.Paused
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                cancelAyahLoadingTimeout()
+                audioState.value = AudioState.Error("Could not load this verse.")
             }
         })
     }
-    
+
     private val workManager = WorkManager.getInstance(application)
-    
+
     private var currentBlocks: List<ContentBlock>? = null
     private var isSequenceMode: Boolean = false
     private var currentReciterId: String? = null
@@ -88,14 +114,15 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun playSurah(surahNumber: Int, url: String, reciterId: String) {
-        stop() 
+        stop()
+        isAyahPlayback = false
         currentReciterId = reciterId
         isSequenceMode = false
         playingAyahIndex.value = null
-        
+
         val localSurahFile = File(getAudioDir(reciterId), "$surahNumber.mp3")
         val dataSource = if (localSurahFile.exists()) localSurahFile.absolutePath else url
-        
+
         playInternal(surahNumber, dataSource, reciterId)
     }
 
@@ -104,16 +131,16 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
         val paddedSurah = surahNumber.toString().padStart(3, '0')
         val paddedAyah = block.ayah.toString().padStart(3, '0')
         val fileName = "$paddedSurah$paddedAyah.mp3"
-        
-        val relativePath = when(reciterId) {
-            "mishari"    -> "Alafasy/mp3/$fileName"
+
+        val relativePath = when (reciterId) {
+            "mishari" -> "Alafasy/mp3/$fileName"
             "abdulbaset" -> "AbdulBaset/Mujawwad/mp3/$fileName"
-            "sudais"     -> "Sudais/mp3/$fileName"
-            "husary"     -> "Husary_64kbps/$fileName"
-            "minshawi"   -> "Minshawi/Murattal/mp3/$fileName"
-            else         -> "Alafasy/mp3/$fileName"
+            "sudais" -> "Sudais/mp3/$fileName"
+            "husary" -> "Husary_64kbps/$fileName"
+            "minshawi" -> "Minshawi/Murattal/mp3/$fileName"
+            else -> "Alafasy/mp3/$fileName"
         }
-        
+
         return if (reciterId == "husary") {
             "https://mirrors.quranicaudio.com/everyayah/$relativePath"
         } else {
@@ -128,12 +155,13 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
         reciterId: String,
         sequence: Boolean
     ) {
-        stop() 
+        stop()
+        isAyahPlayback = true
         currentBlocks = blocks
         isSequenceMode = sequence
         playingAyahIndex.value = ayahIndex
         currentReciterId = reciterId
-        
+
         val url = getAyahUrl(surahNumber, ayahIndex, blocks, reciterId) ?: return
         playInternal(surahNumber, url, reciterId)
     }
@@ -143,15 +171,40 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
         currentReciterId = reciterId
         audioState.value = AudioState.Loading
 
-        val controller = mediaController ?: return
+        val controller = mediaController ?: run {
+            if (isAyahPlayback) audioState.value = AudioState.Error("Could not load this verse.")
+            return
+        }
         try {
+            if (isAyahPlayback) startAyahLoadingTimeout(controller)
             val mediaItem = MediaItem.fromUri(dataSource)
             controller.setMediaItem(mediaItem)
             controller.prepare()
             controller.play()
         } catch (e: Exception) {
-            audioState.value = AudioState.Error(e.message ?: "Failed to play audio")
+            cancelAyahLoadingTimeout()
+            audioState.value = AudioState.Error(
+                if (isAyahPlayback) "Could not load this verse." else e.message ?: "Failed to play audio"
+            )
         }
+    }
+
+    private fun startAyahLoadingTimeout(controller: MediaController) {
+        cancelAyahLoadingTimeout()
+        val attempt = ayahLoadAttempt
+        ayahLoadingTimeoutJob = viewModelScope.launch {
+            delay(AYAH_LOADING_TIMEOUT_MS)
+            if (attempt == ayahLoadAttempt && audioState.value == AudioState.Loading) {
+                audioState.value = AudioState.Error("Could not load this verse.")
+                controller.stop()
+            }
+        }
+    }
+
+    private fun cancelAyahLoadingTimeout() {
+        ayahLoadAttempt++
+        ayahLoadingTimeoutJob?.cancel()
+        ayahLoadingTimeoutJob = null
     }
 
     private fun handleAyahCompletion() {
@@ -159,14 +212,15 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
             val currentIdx = playingAyahIndex.value ?: -1
             val nextIdx = findNextAyahIndex(currentIdx + 1)
             playingAyahIndex.value = nextIdx
-            
+
             if (nextIdx != null) {
                 val surahNum = currentSurah.value ?: return
                 val reciterId = currentReciterId ?: return
                 val blocks = currentBlocks ?: return
                 val nextUrl = getAyahUrl(surahNum, nextIdx, blocks, reciterId) ?: return
-                
+
                 val controller = mediaController ?: return
+                startAyahLoadingTimeout(controller)
                 controller.setMediaItem(MediaItem.fromUri(nextUrl))
                 controller.prepare()
                 controller.play()
@@ -209,6 +263,8 @@ class QuranAudioViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun stop() {
+        cancelAyahLoadingTimeout()
+        isAyahPlayback = false
         mediaController?.stop()
         audioState.value = AudioState.Idle
         playingAyahIndex.value = null

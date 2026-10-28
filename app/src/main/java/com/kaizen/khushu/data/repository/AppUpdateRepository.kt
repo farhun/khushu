@@ -55,12 +55,13 @@ sealed interface DownloadState {
 }
 
 object AppUpdateRepository {
-    private const val GITHUB_API_URL = "https://api.github.com/repos/greykaizen/khushu/releases/latest"
+    private const val GITHUB_API_URL = "https://api.github.com/repos/farhun/khushu/releases/latest"
     private const val GITHUB_ACCEPT_HEADER = "application/vnd.github.v3+json"
+
     // Must match the authority declared in AndroidManifest.xml for the FileProvider.
     // Using applicationId so it resolves correctly across product flavors.
     private val PROVIDER_AUTHORITY: String by lazy { "${BuildConfig.APPLICATION_ID}.update_provider" }
-    private const val USER_AGENT = "Khushu/${BuildConfig.VERSION_NAME} (Android; +https://github.com/greykaizen/khushu)"
+    private const val USER_AGENT = "Khushu/${BuildConfig.VERSION_NAME} (Android; +https://github.com/farhun/khushu)"
 
     private val json = Json { ignoreUnknownKeys = true }
     private val client = OkHttpClient.Builder()
@@ -102,7 +103,10 @@ object AppUpdateRepository {
                 return@withContext UpdateCheckResult.Error(msg, isRetryable = true)
             }
 
-            val body = response.body?.string() ?: return@withContext UpdateCheckResult.Error("Empty response from GitHub", isRetryable = true)
+            val body = response.body?.string() ?: return@withContext UpdateCheckResult.Error(
+                "Empty response from GitHub",
+                isRetryable = true
+            )
             val release = json.decodeFromString<GitHubRelease>(body)
 
             // Prerelease policy: skip prerelease releases on stable channel.
@@ -130,11 +134,11 @@ object AppUpdateRepository {
             // Look for a 'full' APK asset — prefer universal, fall back to ABI-specific.
             val apkAsset = release.assets.find {
                 it.name.contains("full", ignoreCase = true) &&
-                    it.name.endsWith(".apk", ignoreCase = true) &&
-                    it.name.contains("universal", ignoreCase = true)
+                        it.name.endsWith(".apk", ignoreCase = true) &&
+                        it.name.contains("universal", ignoreCase = true)
             } ?: release.assets.find {
                 it.name.contains("full", ignoreCase = true) &&
-                    it.name.endsWith(".apk", ignoreCase = true)
+                        it.name.endsWith(".apk", ignoreCase = true)
             }
 
             if (apkAsset == null) {

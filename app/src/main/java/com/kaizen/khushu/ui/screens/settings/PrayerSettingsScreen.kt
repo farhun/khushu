@@ -102,12 +102,6 @@ private val alertStyleLabels = mapOf(
     "SILENT" to "Silent"
 )
 
-private val eventPerspectiveLabels = mapOf(
-    "UNIVERSAL" to "Universal only",
-    "SUNNI" to "Sunni + universal",
-    "SHIA" to "Shia + universal",
-    "ALL" to "Show all",
-)
 
 private fun prayerSettingLabel(value: String, labels: Map<String, String>): String {
     return labels[value] ?: value
@@ -186,13 +180,38 @@ fun PrayerSettingsScreen(
     val madhabs = listOf("SHAFI", "HANAFI")
     val sources = listOf("LOCAL", "API")
     val alertStyleOptions = listOf("CUSTOM_SOUND", "SYSTEM_SOUND", "VIBRATION", "SILENT")
-    val eventPerspectiveOptions = listOf("UNIVERSAL", "SUNNI", "SHIA", "ALL")
+
     val prayerNotificationPreferences = listOf(
-        PrayerNotificationPreference("Fajr", settings.fajrPrayerNotificationEnabled, settings.fajrPrePrayerNotificationEnabled, settings.fajrPrePrayerMinutes),
-        PrayerNotificationPreference("Dhuhr", settings.dhuhrPrayerNotificationEnabled, settings.dhuhrPrePrayerNotificationEnabled, settings.dhuhrPrePrayerMinutes),
-        PrayerNotificationPreference("Asr", settings.asrPrayerNotificationEnabled, settings.asrPrePrayerNotificationEnabled, settings.asrPrePrayerMinutes),
-        PrayerNotificationPreference("Maghrib", settings.maghribPrayerNotificationEnabled, settings.maghribPrePrayerNotificationEnabled, settings.maghribPrePrayerMinutes),
-        PrayerNotificationPreference("Isha", settings.ishaPrayerNotificationEnabled, settings.ishaPrePrayerNotificationEnabled, settings.ishaPrePrayerMinutes)
+        PrayerNotificationPreference(
+            "Fajr",
+            settings.fajrPrayerNotificationEnabled,
+            settings.fajrPrePrayerNotificationEnabled,
+            settings.fajrPrePrayerMinutes
+        ),
+        PrayerNotificationPreference(
+            "Dhuhr",
+            settings.dhuhrPrayerNotificationEnabled,
+            settings.dhuhrPrePrayerNotificationEnabled,
+            settings.dhuhrPrePrayerMinutes
+        ),
+        PrayerNotificationPreference(
+            "Asr",
+            settings.asrPrayerNotificationEnabled,
+            settings.asrPrePrayerNotificationEnabled,
+            settings.asrPrePrayerMinutes
+        ),
+        PrayerNotificationPreference(
+            "Maghrib",
+            settings.maghribPrayerNotificationEnabled,
+            settings.maghribPrePrayerNotificationEnabled,
+            settings.maghribPrePrayerMinutes
+        ),
+        PrayerNotificationPreference(
+            "Isha",
+            settings.ishaPrayerNotificationEnabled,
+            settings.ishaPrePrayerNotificationEnabled,
+            settings.ishaPrePrayerMinutes
+        )
     )
     val extraTimingPreferences = EXTRA_PRAYER_TIMINGS.map {
         ExtraTimingPreference(
@@ -295,9 +314,13 @@ fun PrayerSettingsScreen(
                             ) {
                                 Icon(Icons.Default.MyLocation, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("GPS Access", fontFamily = BeVietnamPro, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    "GPS Access",
+                                    fontFamily = BeVietnamPro,
+                                    style = MaterialTheme.typography.titleSmall
+                                )
                             }
-    
+
                             OutlinedButton(
                                 onClick = viewModel::refreshLocation,
                                 modifier = Modifier.weight(1f)
@@ -307,12 +330,17 @@ fun PrayerSettingsScreen(
                                 Text("Refresh", fontFamily = BeVietnamPro, style = MaterialTheme.typography.titleSmall)
                             }
                         }
-    
+
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                        
+
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "Current: ${"%.4f".format(Locale.US, settings.locationLat)}, ${"%.4f".format(Locale.US, settings.locationLng)}",
+                                text = "Current: ${"%.4f".format(Locale.US, settings.locationLat)}, ${
+                                    "%.4f".format(
+                                        Locale.US,
+                                        settings.locationLng
+                                    )
+                                }",
                                 style = MaterialTheme.typography.bodySmall.copy(fontFamily = BeVietnamPro),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -417,8 +445,18 @@ fun PrayerSettingsScreen(
                     prayerNotificationPreferences.forEach { preference ->
                         PrayerReminderCard(
                             preference = preference,
-                            onPrayerToggle = { enabled -> viewModel.setPrayerNotificationEnabled(preference.prayerName, enabled) },
-                            onPrePrayerToggle = { enabled -> viewModel.setPrePrayerNotificationEnabled(preference.prayerName, enabled) },
+                            onPrayerToggle = { enabled ->
+                                viewModel.setPrayerNotificationEnabled(
+                                    preference.prayerName,
+                                    enabled
+                                )
+                            },
+                            onPrePrayerToggle = { enabled ->
+                                viewModel.setPrePrayerNotificationEnabled(
+                                    preference.prayerName,
+                                    enabled
+                                )
+                            },
                             onPrePrayerMinutesChange = { minutes ->
                                 viewModel.setPrePrayerMinutes(preference.prayerName, minutes)
                             }
@@ -436,7 +474,12 @@ fun PrayerSettingsScreen(
                         ExtraTimingCard(
                             preference = preference,
                             onSelectedToggle = { enabled -> viewModel.toggleExtraPrayerTiming(preference.id, enabled) },
-                            onNotificationToggle = { enabled -> viewModel.toggleExtraPrayerNotification(preference.id, enabled) }
+                            onNotificationToggle = { enabled ->
+                                viewModel.toggleExtraPrayerNotification(
+                                    preference.id,
+                                    enabled
+                                )
+                            }
                         )
                     }
                 }
@@ -452,23 +495,6 @@ fun PrayerSettingsScreen(
                     checked = settings.showExtraPrayerTimingsOnHome,
                     onCheckedChange = viewModel::toggleShowExtraPrayerTimingsOnHome
                 )
-                SettingsToggleItem(
-                    title = "Show Islamic events on Home",
-                    subtitle = "Keep the monthly events strip visible.",
-                    checked = settings.showUpcomingEventsOnHome,
-                    onCheckedChange = viewModel::toggleShowUpcomingEventsOnHome
-                )
-
-                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    SettingsDropdown(
-                        title = "Event perspective",
-                        subtitle = "Choose whether Home shows universal events only or includes Sunni/Shia-specific observances.",
-                        options = eventPerspectiveOptions,
-                        selectedOption = settings.islamicEventPerspective,
-                        optionLabel = { eventPerspectiveLabels[it] ?: it },
-                        onOptionSelected = viewModel::setIslamicEventPerspective
-                    )
-                }
 
                 Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)) {
                     Text(
@@ -492,7 +518,12 @@ fun PrayerSettingsScreen(
                         PrayerOffsetRow("Fajr", settings.fajrOffsetMinutes) { viewModel.setPrayerOffset("Fajr", it) }
                         PrayerOffsetRow("Dhuhr", settings.dhuhrOffsetMinutes) { viewModel.setPrayerOffset("Dhuhr", it) }
                         PrayerOffsetRow("Asr", settings.asrOffsetMinutes) { viewModel.setPrayerOffset("Asr", it) }
-                        PrayerOffsetRow("Maghrib", settings.maghribOffsetMinutes) { viewModel.setPrayerOffset("Maghrib", it) }
+                        PrayerOffsetRow("Maghrib", settings.maghribOffsetMinutes) {
+                            viewModel.setPrayerOffset(
+                                "Maghrib",
+                                it
+                            )
+                        }
                         PrayerOffsetRow("Isha", settings.ishaOffsetMinutes) { viewModel.setPrayerOffset("Isha", it) }
                     }
                 }
@@ -532,7 +563,10 @@ fun PrayerSettingsScreen(
                                         putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_NAME, "Dhuhr")
                                         putExtra(PrayerAlarmReceiver.EXTRA_NOTIFICATION_TYPE, "PRAYER")
                                         putExtra(PrayerAlarmReceiver.EXTRA_PRE_PRAYER_MINUTES, 0)
-                                        putExtra(PrayerAlarmReceiver.EXTRA_TRIGGER_AT_MILLIS, System.currentTimeMillis())
+                                        putExtra(
+                                            PrayerAlarmReceiver.EXTRA_TRIGGER_AT_MILLIS,
+                                            System.currentTimeMillis()
+                                        )
                                     }
                                 )
                             },
@@ -555,7 +589,10 @@ fun PrayerSettingsScreen(
                                         putExtra(PrayerAlarmReceiver.EXTRA_PRAYER_NAME, "Dhuhr")
                                         putExtra(PrayerAlarmReceiver.EXTRA_NOTIFICATION_TYPE, "PRE_PRAYER")
                                         putExtra(PrayerAlarmReceiver.EXTRA_PRE_PRAYER_MINUTES, 10)
-                                        putExtra(PrayerAlarmReceiver.EXTRA_TRIGGER_AT_MILLIS, System.currentTimeMillis())
+                                        putExtra(
+                                            PrayerAlarmReceiver.EXTRA_TRIGGER_AT_MILLIS,
+                                            System.currentTimeMillis()
+                                        )
                                     }
                                 )
                             },
@@ -728,7 +765,10 @@ private fun PrayerReminderCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     IconButton(onClick = { onPrePrayerMinutesChange(preference.prePrayerMinutes - 1) }) {
                         Text("-", style = MaterialTheme.typography.titleLarge)
                     }
@@ -763,15 +803,21 @@ private fun PrayerDiagnosticsCard(
         DiagnosticRow("Source", source)
         DiagnosticRow("Method", method)
         DiagnosticRow("Madhab", madhab)
-        
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), modifier = Modifier.padding(vertical = 4.dp))
-        
+
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            modifier = Modifier.padding(vertical = 4.dp)
+        )
+
         Text("Location", style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.primary))
         DiagnosticRow("Coordinates", "${"%.4f".format(Locale.US, latitude)}, ${"%.4f".format(Locale.US, longitude)}")
         DiagnosticRow("GPS Status", if (gpsEnabled) "Enabled" else "Disabled")
         DiagnosticRow("Last Refresh", lastRefreshed)
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), modifier = Modifier.padding(vertical = 4.dp))
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            modifier = Modifier.padding(vertical = 4.dp)
+        )
 
         Text("Status", style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.primary))
         DiagnosticRow("Notifications", if (notificationsAllowed) "Allowed" else "Not allowed")
@@ -781,8 +827,18 @@ private fun PrayerDiagnosticsCard(
 @Composable
 private fun DiagnosticRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BeVietnamPro), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BeVietnamPro, fontWeight = FontWeight.SemiBold))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = BeVietnamPro),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = BeVietnamPro,
+                fontWeight = FontWeight.SemiBold
+            )
+        )
     }
 }
 
@@ -795,7 +851,10 @@ private fun ManualLocationInput(
     var latText by remember(lat) { mutableStateOf(lat.toString()) }
     var lngText by remember(lng) { mutableStateOf(lng.toString()) }
 
-    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(
                 value = latText,

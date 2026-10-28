@@ -42,9 +42,7 @@ class SettingsRepository(private val context: Context) {
         val FLUID_TRANSITIONS = booleanPreferencesKey("fluid_transitions")
         val VIBRATION_ON_COUNT = booleanPreferencesKey("vibration_on_count")
         val SHOW_LAP_COUNTER = booleanPreferencesKey("show_lap_counter")
-        val SHOW_EXIT_BUTTON = booleanPreferencesKey("show_exit_button")
-        val SHOW_COMPLETION_TEXT = booleanPreferencesKey("show_completion_text")
-        val COMPLETION_TEXT = stringPreferencesKey("completion_text")
+
         val COLOR_SEED = stringPreferencesKey("color_seed")
         val TASBEEH_LIST_MODE = booleanPreferencesKey("tasbeeh_list_mode")
         val STARTUP_TAB = stringPreferencesKey("startup_tab")
@@ -59,8 +57,10 @@ class SettingsRepository(private val context: Context) {
         val READING_KEEP_SCREEN_ON = booleanPreferencesKey("reading_keep_screen_on")
         val LAST_READ_TOPIC_ID = stringPreferencesKey("last_read_topic_id")
         val BOOKMARKED_TOPIC_IDS = stringSetPreferencesKey("bookmarked_topic_ids")
+        val BOOKMARK_SAVED_AT = stringSetPreferencesKey("bookmark_saved_at")
         val MASTERED_TOPIC_IDS = stringSetPreferencesKey("mastered_topic_ids")
         val SHOW_CONTINUE_READING = booleanPreferencesKey("show_continue_reading")
+        val QURAN_EXIT_REMINDER_DISABLED = booleanPreferencesKey("quran_exit_reminder_disabled")
         val SHOW_TAJWEED = booleanPreferencesKey("show_tajweed")
         val SELECTED_TRANSLATION_LANG = stringPreferencesKey("selected_translation_lang")
         val SELECTED_TRANSLATION_SOURCE = stringPreferencesKey("selected_translation_source")
@@ -128,8 +128,7 @@ class SettingsRepository(private val context: Context) {
         val SELECTED_EXTRA_PRAYER_TIMINGS = stringSetPreferencesKey("selected_extra_prayer_timings")
         val EXTRA_PRAYER_NOTIFICATIONS = stringSetPreferencesKey("extra_prayer_notifications")
         val SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME = booleanPreferencesKey("show_extra_prayer_timings_on_home")
-        val SHOW_UPCOMING_EVENTS_ON_HOME = booleanPreferencesKey("show_upcoming_events_on_home")
-        val ISLAMIC_EVENT_PERSPECTIVE = stringPreferencesKey("islamic_event_perspective")
+
         val LOCATION_LABEL = stringPreferencesKey("location_label")
         val WIDGET_BACKGROUND_COLOR = stringPreferencesKey("widget_background_color")
         val WIDGET_BACKGROUND_OPACITY = floatPreferencesKey("widget_background_opacity")
@@ -175,9 +174,7 @@ class SettingsRepository(private val context: Context) {
                 fluidTransitions = preferences[PreferencesKeys.FLUID_TRANSITIONS] ?: true,
                 vibrationOnCount = preferences[PreferencesKeys.VIBRATION_ON_COUNT] ?: true,
                 showLapCounter = preferences[PreferencesKeys.SHOW_LAP_COUNTER] ?: true,
-                showExitButton = preferences[PreferencesKeys.SHOW_EXIT_BUTTON] ?: true,
-                showCompletionText = preferences[PreferencesKeys.SHOW_COMPLETION_TEXT] ?: true,
-                completionText = preferences[PreferencesKeys.COMPLETION_TEXT] ?: "الحمد لله",
+
                 colorSeed = preferences[PreferencesKeys.COLOR_SEED] ?: "default",
                 tasbeehListMode = preferences[PreferencesKeys.TASBEEH_LIST_MODE] ?: true,
                 startupTab = preferences[PreferencesKeys.STARTUP_TAB] ?: "home",
@@ -192,8 +189,16 @@ class SettingsRepository(private val context: Context) {
                 readingKeepScreenOn = preferences[PreferencesKeys.READING_KEEP_SCREEN_ON] ?: true,
                 lastReadTopicId = preferences[PreferencesKeys.LAST_READ_TOPIC_ID],
                 bookmarkedAyahs = preferences[PreferencesKeys.BOOKMARKED_TOPIC_IDS] ?: emptySet(),
+                bookmarkedAyahSavedAt = preferences[PreferencesKeys.BOOKMARK_SAVED_AT].orEmpty()
+                    .mapNotNull { entry ->
+                        val separator = entry.lastIndexOf('|')
+                        if (separator <= 0) return@mapNotNull null
+                        val savedAt = entry.substring(separator + 1).toLongOrNull() ?: return@mapNotNull null
+                        entry.substring(0, separator) to savedAt
+                    }.toMap(),
                 masteredTopicIds = preferences[PreferencesKeys.MASTERED_TOPIC_IDS] ?: emptySet(),
                 showContinueReading = preferences[PreferencesKeys.SHOW_CONTINUE_READING] ?: true,
+                quranExitReminderDisabled = preferences[PreferencesKeys.QURAN_EXIT_REMINDER_DISABLED] ?: false,
                 showTajweed = preferences[PreferencesKeys.SHOW_TAJWEED] ?: false,
                 selectedTranslationLang = preferences[PreferencesKeys.SELECTED_TRANSLATION_LANG] ?: "en_20",
                 selectedTranslationSource = preferences[PreferencesKeys.SELECTED_TRANSLATION_SOURCE] ?: "FAWAZ",
@@ -255,8 +260,7 @@ class SettingsRepository(private val context: Context) {
                 selectedExtraPrayerTimings = preferences[PreferencesKeys.SELECTED_EXTRA_PRAYER_TIMINGS] ?: emptySet(),
                 extraPrayerNotifications = preferences[PreferencesKeys.EXTRA_PRAYER_NOTIFICATIONS] ?: emptySet(),
                 showExtraPrayerTimingsOnHome = preferences[PreferencesKeys.SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME] ?: false,
-                showUpcomingEventsOnHome = preferences[PreferencesKeys.SHOW_UPCOMING_EVENTS_ON_HOME] ?: true,
-                islamicEventPerspective = preferences[PreferencesKeys.ISLAMIC_EVENT_PERSPECTIVE] ?: "UNIVERSAL",
+
                 locationLabel = preferences[PreferencesKeys.LOCATION_LABEL] ?: "",
                 widgetBackgroundColor = preferences[PreferencesKeys.WIDGET_BACKGROUND_COLOR] ?: "#0D1D0F",
                 widgetBackgroundOpacity = preferences[PreferencesKeys.WIDGET_BACKGROUND_OPACITY] ?: 0.8f,
@@ -341,6 +345,21 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateLocationAndPrayerRefresh(
+        epochMs: Long,
+        location: Pair<Float, Float>? = null
+    ) {
+        context.dataStore.edit { preferences ->
+            location?.let { (lat, lng) ->
+                if (lat.isFinite() && lng.isFinite() && lat in -90f..90f && lng in -180f..180f) {
+                    preferences[PreferencesKeys.LOCATION_LAT] = lat
+                    preferences[PreferencesKeys.LOCATION_LNG] = lng
+                }
+            }
+            preferences[PreferencesKeys.LAST_PRAYER_REFRESH_EPOCH_MS] = epochMs
+        }
+    }
+
     suspend fun updateLastPrayerRefresh(epochMs: Long) {
         context.dataStore.edit { it[PreferencesKeys.LAST_PRAYER_REFRESH_EPOCH_MS] = epochMs }
     }
@@ -405,13 +424,6 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[PreferencesKeys.SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME] = enabled }
     }
 
-    suspend fun updateShowUpcomingEventsOnHome(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.SHOW_UPCOMING_EVENTS_ON_HOME] = enabled }
-    }
-
-    suspend fun updateIslamicEventPerspective(perspective: String) {
-        context.dataStore.edit { it[PreferencesKeys.ISLAMIC_EVENT_PERSPECTIVE] = perspective }
-    }
 
     suspend fun setTasbeehVolumeEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.TASBEEH_VOLUME_ENABLED] = enabled }
@@ -515,17 +527,6 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[PreferencesKeys.SHOW_LAP_COUNTER] = show }
     }
 
-    suspend fun updateShowExitButton(show: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.SHOW_EXIT_BUTTON] = show }
-    }
-
-    suspend fun updateShowCompletionText(show: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.SHOW_COMPLETION_TEXT] = show }
-    }
-
-    suspend fun updateCompletionText(text: String) {
-        context.dataStore.edit { it[PreferencesKeys.COMPLETION_TEXT] = text }
-    }
 
     suspend fun updateColorSeed(seed: String) {
         context.dataStore.edit { it[PreferencesKeys.COLOR_SEED] = seed }
@@ -579,6 +580,33 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[PreferencesKeys.LAST_READ_TOPIC_ID] = id }
     }
 
+    suspend fun toggleBookmarkedTopicId(key: String, savedAt: Long = System.currentTimeMillis()) {
+        context.dataStore.edit { preferences ->
+            val bookmarks = preferences[PreferencesKeys.BOOKMARKED_TOPIC_IDS] ?: emptySet()
+            val savedTimes = preferences[PreferencesKeys.BOOKMARK_SAVED_AT] ?: emptySet()
+            if (key in bookmarks) {
+                preferences[PreferencesKeys.BOOKMARKED_TOPIC_IDS] = bookmarks - key
+                preferences[PreferencesKeys.BOOKMARK_SAVED_AT] = savedTimes.filterNot {
+                    it.substringBeforeLast('|') == key
+                }.toSet()
+            } else {
+                preferences[PreferencesKeys.BOOKMARKED_TOPIC_IDS] = bookmarks + key
+                preferences[PreferencesKeys.BOOKMARK_SAVED_AT] = savedTimes + "$key|$savedAt"
+            }
+        }
+    }
+
+    suspend fun removeBookmarkedTopicId(key: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.BOOKMARKED_TOPIC_IDS] =
+                (preferences[PreferencesKeys.BOOKMARKED_TOPIC_IDS] ?: emptySet()) - key
+            preferences[PreferencesKeys.BOOKMARK_SAVED_AT] =
+                (preferences[PreferencesKeys.BOOKMARK_SAVED_AT] ?: emptySet()).filterNot {
+                    it.substringBeforeLast('|') == key
+                }.toSet()
+        }
+    }
+
     suspend fun updateBookmarkedTopicIds(ids: Set<String>) {
         context.dataStore.edit { it[PreferencesKeys.BOOKMARKED_TOPIC_IDS] = ids }
     }
@@ -589,6 +617,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun updateShowContinueReading(show: Boolean) {
         context.dataStore.edit { it[PreferencesKeys.SHOW_CONTINUE_READING] = show }
+    }
+
+    suspend fun updateQuranExitReminderDisabled(disabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.QURAN_EXIT_REMINDER_DISABLED] = disabled }
     }
 
     suspend fun updateShowTajweed(show: Boolean) {
@@ -638,9 +670,7 @@ data class UserSettings(
     val fluidTransitions: Boolean,
     val vibrationOnCount: Boolean,
     val showLapCounter: Boolean,
-    val showExitButton: Boolean,
-    val showCompletionText: Boolean,
-    val completionText: String,
+
     val colorSeed: String,
     val tasbeehListMode: Boolean,
     val startupTab: String,
@@ -655,8 +685,10 @@ data class UserSettings(
     val readingKeepScreenOn: Boolean = true,
     val lastReadTopicId: String? = null,
     val bookmarkedAyahs: Set<String> = emptySet(),
+    val bookmarkedAyahSavedAt: Map<String, Long> = emptyMap(),
     val masteredTopicIds: Set<String> = emptySet(),
     val showContinueReading: Boolean = true,
+    val quranExitReminderDisabled: Boolean = false,
     val showTajweed: Boolean = false,
     val selectedTranslationLang: String = "en_20",
     val selectedTranslationSource: String = "FAWAZ",
@@ -715,8 +747,7 @@ data class UserSettings(
     val selectedExtraPrayerTimings: Set<String> = emptySet(),
     val extraPrayerNotifications: Set<String> = emptySet(),
     val showExtraPrayerTimingsOnHome: Boolean = false,
-    val showUpcomingEventsOnHome: Boolean = true,
-    val islamicEventPerspective: String = "UNIVERSAL",
+
     val locationLabel: String = "",
     val widgetBackgroundColor: String = "#0D1D0F",
     val widgetBackgroundOpacity: Float = 0.8f,

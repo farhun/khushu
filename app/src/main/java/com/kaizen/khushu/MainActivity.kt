@@ -48,9 +48,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.kaizen.khushu.data.local.CanvasDatabase
-import com.kaizen.khushu.data.model.CanvasPreset
-import com.kaizen.khushu.data.repository.AudioRepository
-import com.kaizen.khushu.data.repository.IslamicEventsRepository
+
 import com.kaizen.khushu.data.repository.ReleaseNotesRepository
 import com.kaizen.khushu.data.repository.SettingsRepository
 import com.kaizen.khushu.data.model.TasbeehCollection
@@ -66,14 +64,7 @@ import com.kaizen.khushu.ui.screens.onboarding.OnboardingScreen
 import com.kaizen.khushu.ui.screens.home.HomeScreen
 import com.kaizen.khushu.ui.screens.home.HomeViewModel
 import com.kaizen.khushu.data.repository.PrayerTimeRepository
-import com.kaizen.khushu.ui.screens.learn.LearnScreen
-import com.kaizen.khushu.ui.screens.learn.LearnSectionDetailScreen
-import com.kaizen.khushu.ui.screens.learn.LearnAudioViewModel
-import com.kaizen.khushu.ui.screens.learn.LearnReadingScreen
-import com.kaizen.khushu.ui.screens.salah.SalahCanvasScreen
-import com.kaizen.khushu.ui.screens.salah.SalahCanvasViewModel
-import com.kaizen.khushu.ui.screens.salah.SalahImmersiveScreen
-import com.kaizen.khushu.ui.screens.salah.SalahPickerScreen
+
 import com.kaizen.khushu.ui.screens.settings.*
 import com.kaizen.khushu.ui.screens.tasbeeh.*
 import com.kaizen.khushu.ui.theme.KhushuTheme
@@ -95,11 +86,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var settingsViewModel: SettingsViewModel
     private lateinit var tasbeehViewModel: TasbeehViewModel
-    private lateinit var salahCanvasViewModel: SalahCanvasViewModel
+
     private lateinit var tasbeehCanvasViewModel: TasbeehCanvasViewModel
-    private lateinit var learnAudioViewModel: LearnAudioViewModel
+
     private lateinit var quranViewModel: com.kaizen.khushu.ui.screens.quran.QuranViewModel
-    private lateinit var hadithViewModel: com.kaizen.khushu.ui.screens.hadith.HadithViewModel
+
     private lateinit var prayerTimeRepository: PrayerTimeRepository
     private lateinit var homeViewModel: com.kaizen.khushu.ui.screens.home.HomeViewModel
 
@@ -141,7 +132,7 @@ class MainActivity : ComponentActivity() {
         settingsRepository = SettingsRepository(applicationContext)
         settingsViewModel = SettingsViewModel(settingsRepository, applicationContext)
         prayerTimeRepository = PrayerTimeRepository(settingsRepository)
-        val islamicEventsRepository = IslamicEventsRepository(applicationContext)
+
         val prayerNotificationScheduler = PrayerNotificationScheduler(applicationContext)
         val prayerManager = com.kaizen.khushu.logic.PrayerManager(settingsRepository, prayerTimeRepository)
 
@@ -150,8 +141,9 @@ class MainActivity : ComponentActivity() {
             com.kaizen.khushu.ui.screens.home.HomeViewModel.factory(
                 settingsRepository,
                 prayerTimeRepository,
-                islamicEventsRepository,
-                prayerManager
+                prayerManager,
+                settingsViewModel,
+                applicationContext
             )
         )[com.kaizen.khushu.ui.screens.home.HomeViewModel::class.java]
 
@@ -161,11 +153,6 @@ class MainActivity : ComponentActivity() {
                 TasbeehViewModel::class.java]
 
         val canvasDao = CanvasDatabase.getInstance(applicationContext).canvasDao()
-        salahCanvasViewModel =
-            ViewModelProvider(
-                this as ViewModelStoreOwner,
-                SalahCanvasViewModel.factory(canvasDao)
-            )[SalahCanvasViewModel::class.java]
 
         tasbeehCanvasViewModel =
             ViewModelProvider(
@@ -173,15 +160,9 @@ class MainActivity : ComponentActivity() {
                 TasbeehCanvasViewModel.factory(canvasDao)
             )[TasbeehCanvasViewModel::class.java]
 
-        val audioRepository = AudioRepository(applicationContext)
-        learnAudioViewModel =
-            ViewModelProvider(
-                this as ViewModelStoreOwner,
-                LearnAudioViewModel.factory(audioRepository, applicationContext)
-            )[LearnAudioViewModel::class.java]
 
         quranViewModel = ViewModelProvider(this)[com.kaizen.khushu.ui.screens.quran.QuranViewModel::class.java]
-        hadithViewModel = ViewModelProvider(this)[com.kaizen.khushu.ui.screens.hadith.HadithViewModel::class.java]
+
 
         lifecycleScope.launch {
             settingsRepository.settingsFlow
@@ -246,11 +227,8 @@ class MainActivity : ComponentActivity() {
                     KhushuApp(
                         settingsViewModel = settingsViewModel,
                         tasbeehViewModel = tasbeehViewModel,
-                        salahCanvasViewModel = salahCanvasViewModel,
                         tasbeehCanvasViewModel = tasbeehCanvasViewModel,
-                        learnAudioViewModel = learnAudioViewModel,
                         quranViewModel = quranViewModel,
-                        hadithViewModel = hadithViewModel,
                         homeViewModel = homeViewModel,
                         darkTheme = darkTheme,
                         media3Controller = media3Controller
@@ -282,11 +260,8 @@ class MainActivity : ComponentActivity() {
 private fun KhushuApp(
     settingsViewModel: SettingsViewModel,
     tasbeehViewModel: TasbeehViewModel,
-    salahCanvasViewModel: SalahCanvasViewModel,
     tasbeehCanvasViewModel: TasbeehCanvasViewModel,
-    learnAudioViewModel: LearnAudioViewModel,
     quranViewModel: com.kaizen.khushu.ui.screens.quran.QuranViewModel,
-    hadithViewModel: com.kaizen.khushu.ui.screens.hadith.HadithViewModel,
     homeViewModel: HomeViewModel,
     darkTheme: Boolean,
     media3Controller: MediaController?
@@ -312,11 +287,11 @@ private fun KhushuApp(
     SideEffect {
         activity?.isOnTasbeehImmersive = currentRoute?.startsWith("tasbeeh/immersive") == true
     }
-    val currentDestination = AppDestinations.fromRoute(currentRoute) ?: AppDestinations.SALAH
+    val currentDestination = AppDestinations.fromRoute(currentRoute) ?: AppDestinations.HOME
     val showDeveloperWelcome =
         !settings.developerWelcomeDismissed &&
-            currentRoute != ONBOARDING_ROUTE &&
-            pendingReleaseNotes == null
+                currentRoute != ONBOARDING_ROUTE &&
+                pendingReleaseNotes == null
 
     LaunchedEffect(currentRoute, settings.lastSeenAppVersionCode) {
         if (currentRoute == ONBOARDING_ROUTE) return@LaunchedEffect
@@ -341,9 +316,9 @@ private fun KhushuApp(
 
     val startRoute = remember {
         val saved = settingsViewModel.settings.value.startupTab
-        AppDestinations.fromRoute(saved)?.route ?: AppDestinations.SALAH.route
+        AppDestinations.fromRoute(saved)?.route ?: AppDestinations.HOME.route
     }
-    
+
     val onNavigateTab: (AppDestinations) -> Unit = { dest ->
         if (currentRoute != dest.route) {
             navController.navigate(dest.route) {
@@ -376,7 +351,7 @@ private fun KhushuApp(
                             settingsViewModel = settingsViewModel,
                             onComplete = {
                                 settingsViewModel.setOnboardingCompleted(true)
-                                navController.navigate(AppDestinations.SALAH.route) {
+                                navController.navigate(AppDestinations.HOME.route) {
                                     popUpTo(ONBOARDING_ROUTE) { inclusive = true }
                                 }
                             }
@@ -394,26 +369,10 @@ private fun KhushuApp(
                             viewModel = homeViewModel,
                             hazeState = hazeState,
                             contentPadding = screenContentPadding,
-                            onSettingsClick = { showSettingsSheet = true },
-                            onPrayClick = { navController.navigate(AppDestinations.SALAH.route) }
+                            onSettingsClick = { showSettingsSheet = true }
                         )
                     }
 
-                    composable(
-                        route = AppDestinations.SALAH.route,
-                        enterTransition = { tabEnter() },
-                        exitTransition = { tabExit() },
-                        popEnterTransition = { tabEnter() },
-                        popExitTransition = { tabExit() },
-                    ) {
-                        SalahPickerScreen(
-                            onStartSalah = { rakats, presetId ->
-                                navController.navigate("salah/immersive/$rakats/${presetId ?: "signature"}")
-                            },
-                            onSettingsClick = { showSettingsSheet = true },
-                            hazeState = hazeState
-                        )
-                    }
 
                     composable(
                         route = AppDestinations.TASBEEH.route,
@@ -437,51 +396,21 @@ private fun KhushuApp(
                         )
                     }
 
+
                     composable(
-                        route = AppDestinations.LEARN.route,
+                        route = AppDestinations.QURAN.route,
                         enterTransition = { tabEnter() },
                         exitTransition = { tabExit() },
                         popEnterTransition = { tabEnter() },
                         popExitTransition = { tabExit() },
                     ) {
-                        LearnScreen(
-                            onSectionTap = { title ->
-                                navController.navigate("learn_detail/$title")
-                            },
-                            onCardTap = { topicId ->
-                                if (topicId == "quran_browser") {
-                                    navController.navigate("quran")
-                                } else if (topicId.startsWith("quran_surah_")) {
-                                    val surahPayload = topicId.removePrefix("quran_surah_")
-                                    val surahId = surahPayload.substringBefore("?")
-                                    val ayahIndex = surahPayload.substringAfter("?ayah=", "").toIntOrNull()
-                                    navController.navigate(
-                                        if (ayahIndex != null) "quran/$surahId?ayah=$ayahIndex" else "quran/$surahId"
-                                    )
-                                } else if (topicId.startsWith("hadith_book_")) {
-                                    val bookId = topicId.removePrefix("hadith_book_")
-                                    navController.navigate("hadith/$bookId")
-                                } else {
-                                    navController.navigate("learn_card/$topicId")
-                                }
-                            },
-                            onSettingsClick = { showSettingsSheet = true },
-                            hazeState = hazeState,
-                            contentPadding = screenContentPadding,
-                            settingsViewModel = settingsViewModel
-                        )
-                    }
-
-                    composable(
-                        route = "quran",
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) {
                         com.kaizen.khushu.ui.screens.quran.QuranSurahListScreen(
                             onSurahTap = { num -> navController.navigate("quran/$num") },
-                            viewModel = quranViewModel
+                            onBookmarkedAyahTap = { surah, ayah ->
+                                navController.navigate("quran/$surah?ayah=$ayah")
+                            },
+                            viewModel = quranViewModel,
+                            settingsViewModel = settingsViewModel
                         )
                     }
 
@@ -517,116 +446,7 @@ private fun KhushuApp(
                         )
                     }
 
-                    composable(
-                        route = "hadith/{bookId}",
-                        arguments = listOf(navArgument("bookId") { type = NavType.StringType }),
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) { backStackEntry ->
-                        val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-                        val book = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.find { it.id == bookId }
-                        if (book != null) {
-                            com.kaizen.khushu.ui.screens.hadith.HadithSectionListScreen(
-                                book = book,
-                                onSectionTap = { num, title ->
-                                    navController.navigate("hadith/$bookId/$num/$title")
-                                },
-                                onBack = { navController.popBackStack() },
-                                viewModel = hadithViewModel
-                            )
-                        }
-                    }
 
-                    composable(
-                        route = "hadith/{bookId}/{sectionNum}/{sectionTitle}",
-                        arguments = listOf(
-                            navArgument("bookId") { type = NavType.StringType },
-                            navArgument("sectionNum") { type = NavType.IntType },
-                            navArgument("sectionTitle") { type = NavType.StringType }
-                        ),
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) { backStackEntry ->
-                        val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-                        val sectionNum = backStackEntry.arguments?.getInt("sectionNum") ?: 0
-                        val sectionTitle = backStackEntry.arguments?.getString("sectionTitle") ?: ""
-                        val book = com.kaizen.khushu.data.model.BUNDLED_HADITH_BOOKS.find { it.id == bookId }
-
-                        com.kaizen.khushu.ui.screens.hadith.HadithReaderScreen(
-                            bookId = bookId,
-                            sectionNumber = sectionNum,
-                            sectionTitle = sectionTitle,
-                            bookName = book?.name ?: "",
-                            onBack = { navController.popBackStack() },
-                            viewModel = hadithViewModel,
-                            settingsViewModel = settingsViewModel
-                        )
-                    }
-
-                    composable(
-                        route = LEARN_DETAIL_ROUTE,
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) { backStackEntry ->
-                        val sectionTitle = backStackEntry.arguments?.getString("sectionTitle") ?: ""
-                        LearnSectionDetailScreen(
-                            sectionTitle = sectionTitle,
-                            onBack = { navController.popBackStack() },
-                            onCardTap = { topicId ->
-                                if (topicId.startsWith("quran_surah_")) {
-                                    val surahPayload = topicId.removePrefix("quran_surah_")
-                                    val surahId = surahPayload.substringBefore("?")
-                                    val ayahIndex = surahPayload.substringAfter("?ayah=", "").toIntOrNull()
-                                    navController.navigate(
-                                        if (ayahIndex != null) "quran/$surahId?ayah=$ayahIndex" else "quran/$surahId"
-                                    )
-                                } else if (topicId.startsWith("hadith_book_")) {
-                                    val bookId = topicId.removePrefix("hadith_book_")
-                                    navController.navigate("hadith/$bookId")
-                                } else {
-                                    navController.navigate("learn_card/$topicId")
-                                }
-                            },
-                        )
-                    }
-
-                    composable(
-                        route = "learn_card/{topicId}?ayah={ayah}",
-                        arguments = listOf(
-                            navArgument("topicId") { type = NavType.StringType },
-                            navArgument("ayah") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = null
-                            }
-                        ),
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) { backStackEntry ->
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        val topicId = backStackEntry.arguments?.getString("topicId") ?: ""
-                        val ayahIndex = backStackEntry.arguments?.getString("ayah")?.toIntOrNull()
-                        val topic = com.kaizen.khushu.data.repository.LearnRepository.getSections(context)
-                            .flatMap { it.topics }.find { it.id == topicId }
-                        if (topic != null) {
-                            LearnReadingScreen(
-                                topic = topic,
-                                settingsViewModel = settingsViewModel,
-                                learnAudioViewModel = learnAudioViewModel,
-                                media3Controller = media3Controller,
-                                onBack = { navController.popBackStack() },
-                                initialAyahIndex = ayahIndex
-                            )
-                        }
-                    }
 
                     composable(
                         route = SETTINGS_ROUTE,
@@ -731,7 +551,6 @@ private fun KhushuApp(
                     ) {
                         CustomizeScreen(
                             settingsViewModel = settingsViewModel,
-                            onNavigateSalah = { navController.navigate(CUSTOMIZE_SALAH_ROUTE) },
                             onNavigateTasbeeh = {
                                 navController.navigate(CUSTOMIZE_TASBEEH_ROUTE)
                             },
@@ -741,21 +560,6 @@ private fun KhushuApp(
                         )
                     }
 
-                    composable(
-                        route = CUSTOMIZE_SALAH_ROUTE,
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) {
-                        SalahCustomizeScreen(
-                            viewModel = settingsViewModel,
-                            onCustomizeLayout = { rakats ->
-                                navController.navigate("salah/canvas/$rakats")
-                            },
-                            onBack = { navController.popBackStack() }
-                        )
-                    }
 
                     composable(
                         route = CUSTOMIZE_TASBEEH_ROUTE,
@@ -785,9 +589,10 @@ private fun KhushuApp(
                         val collections by tasbeehViewModel.collections.collectAsStateWithLifecycle()
                         val collection = collections.find { it.id.toString() == collectionId }
                         if (collection != null) {
-                            val beadStyle = if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
+                            val beadStyle =
+                                if (settings.tasbihBeadStyle == "DARK_ONYX") BeadStyle.DARK_ONYX else BeadStyle.CLASSIC_AMBER
                             val customBeadStyle = settings.customBeadStyles.find { it.id == settings.activeBeadStyleId }
-                            
+
                             TasbeehImmersiveScreen(
                                 viewModel = tasbeehViewModel,
                                 canvasViewModel = tasbeehCanvasViewModel,
@@ -800,61 +605,7 @@ private fun KhushuApp(
                         }
                     }
 
-                    composable(
-                        route = SALAH_IMMERSIVE_ROUTE,
-                        arguments = listOf(
-                            navArgument("rakats") { type = NavType.IntType },
-                            navArgument("presetId") { type = NavType.StringType }
-                        ),
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) { backStackEntry ->
-                        val rakats = backStackEntry.arguments?.getInt("rakats") ?: 2
-                        val presetId = backStackEntry.arguments?.getString("presetId") ?: "signature"
-                        
-                        val activeLayout by salahCanvasViewModel.layout.collectAsStateWithLifecycle()
-                        val currentCanvasPreset = CanvasPreset(
-                            id = "current",
-                            name = "Current Canvas",
-                            backgroundColor = activeLayout.backgroundColorInt,
-                            widgets = activeLayout.widgets,
-                            isDeletable = false
-                        )
-                        var finalPresetToRender = currentCanvasPreset
-                        if (presetId != "current") {
-                            val dbPreset by salahCanvasViewModel.getPresetFlow(presetId).collectAsStateWithLifecycle(initialValue = null)
-                            if (dbPreset != null) finalPresetToRender = dbPreset!!
-                        }
 
-                        SalahImmersiveScreen(
-                            targetRakats = rakats,
-                            preset = finalPresetToRender,
-                            showExitButton = settings.showExitButton,
-                            showCompletionText = settings.showCompletionText,
-                            completionText = settings.completionText.ifBlank { "الحمد لله" },
-                            onComplete = { navController.popBackStack() },
-                            onExit = { navController.popBackStack() }
-                        )
-                    }
-
-                    composable(
-                        route = SALAH_CANVAS_ROUTE,
-                        arguments = listOf(navArgument("rakats") { type = NavType.IntType }),
-                        enterTransition = { subScreenEnter() },
-                        exitTransition = { subScreenExit() },
-                        popEnterTransition = { subScreenPopEnter() },
-                        popExitTransition = { subScreenPopExit() },
-                    ) { backStackEntry ->
-                        val rakats = backStackEntry.arguments?.getInt("rakats") ?: 4
-                        SalahCanvasScreen(
-                            targetRakats = rakats,
-                            viewModel = salahCanvasViewModel,
-                            onSave = { navController.popBackStack() },
-                            onExit = { navController.popBackStack() }
-                        )
-                    }
 
                     composable(
                         route = TASBEEH_CANVAS_ROUTE,

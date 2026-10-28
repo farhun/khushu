@@ -2,11 +2,11 @@ Categories:
   - Reading
   - Time
 License: GPL-3.0-only
-SourceCode: https://github.com/greykaizen/khushu
-IssueTracker: https://github.com/greykaizen/khushu/issues
-Changelog: https://github.com/greykaizen/khushu/releases
+SourceCode: https://github.com/farhun/khushu
+IssueTracker: https://github.com/farhun/khushu/issues
+Changelog: https://github.com/farhun/khushu/releases
 RepoType: git
-Repo: https://github.com/greykaizen/khushu.git
+Repo: https://github.com/farhun/khushu.git
 CurrentVersion: "0.24.9"
 CurrentVersionCode: 83
 UpdateCheckMode: Tags

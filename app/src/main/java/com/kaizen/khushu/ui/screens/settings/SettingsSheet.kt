@@ -1,16 +1,11 @@
 package com.kaizen.khushu.ui.screens.settings
 
-import android.content.Intent
-import android.net.Uri
+
 import com.kaizen.khushu.ui.components.KhushuLogoBadge
-import androidx.compose.animation.AnimatedContent
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
+
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,8 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.BugReport
+
+
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,30 +45,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
+
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kaizen.khushu.R
+
 import com.kaizen.khushu.ui.theme.Antonio
 import com.kaizen.khushu.ui.theme.BeVietnamPro
 import com.kaizen.khushu.BuildConfig
-import androidx.activity.compose.BackHandler
+
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.ui.text.font.FontWeight
 
-private const val KHUSHU_REPO_URL = "https://github.com/greykaizen/khushu"
-private const val KHUSHU_ISSUES_URL = "https://github.com/greykaizen/khushu/issues/new/choose"
-
-private enum class SettingsView {
-    Main, History
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,18 +73,8 @@ fun SettingsSheet(
     onNavigateAbout: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     val settings by viewModel.settings.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var currentView by remember { mutableStateOf(SettingsView.Main) }
-
-    fun openUrl(url: String) {
-        context.startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
-    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -103,103 +82,52 @@ fun SettingsSheet(
         shape = MaterialTheme.shapes.extraLarge,
         dragHandle = null
     ) {
-        BackHandler(enabled = currentView == SettingsView.History) {
-            currentView = SettingsView.Main
-        }
-
-        val targetFraction = if (currentView == SettingsView.History) 0.92f else 0.73f
-
         val animatedFraction by animateFloatAsState(
-            targetValue = targetFraction,
+            targetValue = 0.73f,
             animationSpec = tween(300),
             label = "sheetHeight"
         )
-
-        val contentPadding = if (currentView == SettingsView.History) {
-            PaddingValues(0.dp)
-        } else {
-            PaddingValues(horizontal = 24.dp, vertical = 12.dp)
-        }
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(animatedFraction)
         ) {
-            if (currentView == SettingsView.Main) {
-                SettingsBrandingHeader(
-                    logoStyle = settings.logoStyle,
-                    onDismiss = onDismiss,
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
+            SettingsBrandingHeader(
+                logoStyle = settings.logoStyle,
+                onDismiss = onDismiss,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(contentPadding)
+                    .padding(PaddingValues(horizontal = 24.dp, vertical = 12.dp))
             ) {
-                AnimatedContent(
-                    targetState = currentView,
-                    transitionSpec = {
-                        if (targetState == SettingsView.History) {
-                            slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) togetherWith
-                                    slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300))
-                        } else {
-                            slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) togetherWith
-                                    slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
-                        }
-                    },
-                    label = "settings_sheet_nav",
-                    modifier = Modifier.weight(1f)
-                ) { view ->
-                    when (view) {
-                        SettingsView.Main -> MainMenuView(
-                            onSettings = onNavigateSettings,
-                            onCustomize = onNavigateCustomize,
-                            onHistory = { currentView = SettingsView.History }
-                        )
-                        SettingsView.History -> HistoryView(
-                            onBack = { currentView = SettingsView.Main },
-                            onDismiss = onDismiss
-                        )
-                    }
-                }
+                MainMenuView(
+                    onSettings = onNavigateSettings,
+                    onCustomize = onNavigateCustomize
+                )
 
-                // Fixed Footer (Social + Version) — Hidden in History
-                if (currentView == SettingsView.Main) {
-                    Spacer(Modifier.height(16.dp))
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(bottom = 12.dp),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            SocialCircleButton(
-                                iconRes = R.drawable.ic_github,
-                                onClick = { openUrl(KHUSHU_REPO_URL) }
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            SocialCircleButton(
-                                imageVector = Icons.Default.BugReport,
-                                onClick = { openUrl(KHUSHU_ISSUES_URL) }
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            SocialCircleButton(
-                                imageVector = Icons.Default.Info,
-                                onClick = onNavigateAbout
-                            )
-                        }
-                        Text(
-                            text = "v${BuildConfig.VERSION_NAME}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            modifier = Modifier.padding(bottom = 50.dp, top = 12.dp)
-                        )
-                    }
+                Spacer(Modifier.weight(1f))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    SocialCircleButton(
+                        imageVector = Icons.Default.Info,
+                        onClick = onNavigateAbout
+                    )
+                    Text(
+                        text = "v${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        modifier = Modifier.padding(bottom = 50.dp, top = 12.dp)
+                    )
                 }
             }
         }
@@ -209,18 +137,16 @@ fun SettingsSheet(
 @Composable
 private fun MainMenuView(
     onSettings: () -> Unit,
-    onCustomize: () -> Unit,
-    onHistory: () -> Unit
+    onCustomize: () -> Unit
 ) {
     Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp),
-            horizontalAlignment = Alignment.End,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+        horizontalAlignment = Alignment.End,
     ) {
         SettingsMenuItem(text = "Settings", onClick = onSettings)
         SettingsMenuItem(text = "Customize", onClick = onCustomize)
-        SettingsMenuItem(text = "History", onClick = onHistory)
     }
 }
 
@@ -242,59 +168,6 @@ private fun SettingsMenuItem(
             .padding(end = 12.dp),
         textAlign = androidx.compose.ui.text.style.TextAlign.End
     )
-}
-
-@Composable
-private fun HistoryView(onBack: () -> Unit, onDismiss: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(Modifier.width(18.dp))
-                Text(
-                    text = "History",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontFamily = BeVietnamPro, fontSize = 28.sp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            IconButton(onClick = onDismiss) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 18.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "History tracking coming soon to Khushu.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
-        }
-    }
 }
 
 
@@ -320,7 +193,7 @@ private fun SettingsBrandingHeader(
             Text(
                 text = "Khushu",
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    fontFamily = Antonio, 
+                    fontFamily = Antonio,
                     fontSize = 28.sp,
                     letterSpacing = 1.sp
                 ),
@@ -342,8 +215,7 @@ private fun SettingsBrandingHeader(
 
 @Composable
 private fun SocialCircleButton(
-    iconRes: Int? = null,
-    imageVector: ImageVector? = null,
+    imageVector: ImageVector,
     onClick: () -> Unit
 ) {
     Box(
@@ -354,24 +226,11 @@ private fun SocialCircleButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        when {
-            imageVector != null -> {
-                Icon(
-                    imageVector = imageVector,
-                    contentDescription = null,
-                    modifier = Modifier.size(26.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            iconRes != null -> {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = null,
-                    modifier = Modifier.size(35.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+        Icon(
+            imageVector = imageVector,
+            contentDescription = null,
+            modifier = Modifier.size(26.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

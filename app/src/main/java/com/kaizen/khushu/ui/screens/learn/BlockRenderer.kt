@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.Info
@@ -83,6 +84,7 @@ fun BlockRenderer(
     scriptMap: Map<String, String> = emptyMap(),
     arabicFontFamily: FontFamily = ScheherazadeNew,
     isHighlighted: Boolean = false,
+    isBookmarked: Boolean = false,
     onBlockClick: (ContentBlock) -> Unit = {},
     onPlayClick: ((ContentBlock) -> Unit)? = null,
     onBookmarkClick: ((ContentBlock) -> Unit)? = null,
@@ -95,9 +97,9 @@ fun BlockRenderer(
     val textPadding = Modifier.padding(horizontal = 20.dp)
 
     when (block) {
-        is HeadingBlock   -> HeadingBlockView(block, fg, modifier.then(textPadding).clickable { onBlockClick(block) })
+        is HeadingBlock -> HeadingBlockView(block, fg, modifier.then(textPadding).clickable { onBlockClick(block) })
         is ParagraphBlock -> ParagraphBlockView(block, settings, fg, modifier.then(textPadding))
-        is AyahBlock      -> AyahBlockView(
+        is AyahBlock -> AyahBlockView(
             block = block,
             settings = settings,
             fg = fg,
@@ -107,6 +109,7 @@ fun BlockRenderer(
             scriptMap = scriptMap,
             arabicFontFamily = arabicFontFamily,
             isHighlighted = isHighlighted,
+            isBookmarked = isBookmarked,
             readingMode = readingMode,
             source = source,
             onPlayClick = { onPlayClick?.invoke(block) },
@@ -115,10 +118,17 @@ fun BlockRenderer(
             onReflectionsClick = { onReflectionsClick?.invoke(block) },
             modifier = modifier.clickable { onBlockClick(block) }
         )
-        is HadithBlock    -> HadithBlockView(block, settings, fg, bg, modifier.clickable { onBlockClick(block) })
-        is CalloutBlock   -> CalloutBlockView(block, fg, modifier.then(textPadding))
-        is DividerBlock   -> DividerBlockView(fg, modifier.then(textPadding))
-        is ArabicBlock    -> ArabicBlockView(block, settings, fg, bg, arabicFontFamily, modifier.clickable { onBlockClick(block) })
+
+        is HadithBlock -> HadithBlockView(block, settings, fg, bg, modifier.clickable { onBlockClick(block) })
+        is CalloutBlock -> CalloutBlockView(block, fg, modifier.then(textPadding))
+        is DividerBlock -> DividerBlockView(fg, modifier.then(textPadding))
+        is ArabicBlock -> ArabicBlockView(
+            block,
+            settings,
+            fg,
+            bg,
+            arabicFontFamily,
+            modifier.clickable { onBlockClick(block) })
     }
 }
 
@@ -177,6 +187,7 @@ private fun AyahBlockView(
     scriptMap: Map<String, String>,
     arabicFontFamily: FontFamily,
     isHighlighted: Boolean,
+    isBookmarked: Boolean,
     readingMode: String,
     source: ContentSource = ContentSource.QF,
     onPlayClick: () -> Unit,
@@ -195,17 +206,27 @@ private fun AyahBlockView(
 
     // Reading mode: seamless Arabic flow, no chrome
     if (isReadingMode) {
-        ReadingModeAyah(block, settings, contentColor, fg, tajweedMap, scriptMap, arabicFontFamily, inlineContent = remember(block.ayah, contentColor) {
-            mapOf(
-                "marker" to androidx.compose.foundation.text.InlineTextContent(
-                    androidx.compose.ui.text.Placeholder(
-                        width = 38.sp,
-                        height = 32.sp,
-                        placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.Center
-                    )
-                ) { AyahEndMarker(number = block.ayah, fg = contentColor) }
-            )
-        }, modifier = modifier.background(highlightBg))
+        ReadingModeAyah(
+            block,
+            settings,
+            contentColor,
+            fg,
+            tajweedMap,
+            scriptMap,
+            arabicFontFamily,
+            inlineContent = remember(block.ayah, contentColor) {
+                mapOf(
+                    "marker" to androidx.compose.foundation.text.InlineTextContent(
+                        androidx.compose.ui.text.Placeholder(
+                            width = 38.sp,
+                            height = 32.sp,
+                            placeholderVerticalAlign = androidx.compose.ui.text.PlaceholderVerticalAlign.Center
+                        )
+                    ) { AyahEndMarker(number = block.ayah, fg = contentColor) }
+                )
+            },
+            modifier = modifier.background(highlightBg)
+        )
         return
     }
 
@@ -321,6 +342,7 @@ private fun AyahBlockView(
             !settings.showTranslation -> null
             translationMap.isNotEmpty() -> com.kaizen.khushu.data.repository.TranslationRepository
                 .getTranslation(translationMap, block.surah, block.ayah) ?: block.translationEn
+
             else -> block.translationEn
         }
         val isTranslationRtl = com.kaizen.khushu.data.model.TranslationMeta.AVAILABLE_TRANSLATIONS
@@ -430,8 +452,8 @@ private fun AyahBlockView(
                 }
                 IconButton(onClick = onBookmarkClick, modifier = Modifier.size(32.dp)) {
                     Icon(
-                        Icons.Default.BookmarkBorder,
-                        contentDescription = "Bookmark",
+                        if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                        contentDescription = if (isBookmarked) "Remove bookmark" else "Bookmark",
                         tint = contentColor.copy(alpha = 0.45f),
                         modifier = Modifier.size(17.dp)
                     )
@@ -576,8 +598,8 @@ private fun HadithBlockView(
 ) {
     val hadithBg = when {
         bg == Color(0xFFF5E6C8) -> Color(0xFFEDD9A3)
-        bg == Color.White       -> Color(0xFFF0F0F0)
-        else                    -> MaterialTheme.colorScheme.surfaceContainer
+        bg == Color.White -> Color(0xFFF0F0F0)
+        else -> MaterialTheme.colorScheme.surfaceContainer
     }
 
     Surface(
@@ -672,8 +694,8 @@ private fun HadithBlockView(
 private fun GradePill(grade: String, fg: Color) {
     val pillColor = when (grade.lowercase()) {
         "sahih", "صحيح" -> Color(0xFF2E7D32)
-        "hasan", "حسن"  -> Color(0xFF1565C0)
-        else             -> fg.copy(alpha = 0.6f)
+        "hasan", "حسن" -> Color(0xFF1565C0)
+        else -> fg.copy(alpha = 0.6f)
     }
     Box(
         modifier = Modifier
@@ -702,9 +724,9 @@ private fun CalloutBlockView(
     modifier: Modifier = Modifier,
 ) {
     val (accentColor, icon) = when (block.style) {
-        "tip"     -> MaterialTheme.colorScheme.primary to Icons.Default.Lightbulb
+        "tip" -> MaterialTheme.colorScheme.primary to Icons.Default.Lightbulb
         "warning" -> Color(0xFFF59E0B) to Icons.Default.Info
-        else      -> MaterialTheme.colorScheme.secondary to Icons.Default.Info
+        else -> MaterialTheme.colorScheme.secondary to Icons.Default.Info
     }
 
     Box(
@@ -774,8 +796,8 @@ private fun ArabicBlockView(
 ) {
     val arabicBg = when {
         bg == Color(0xFFF5E6C8) -> Color(0xFFEDD9A3)
-        bg == Color.White       -> Color(0xFFF0F0F0)
-        else                    -> MaterialTheme.colorScheme.surfaceContainer
+        bg == Color.White -> Color(0xFFF0F0F0)
+        else -> MaterialTheme.colorScheme.surfaceContainer
     }
 
     Surface(

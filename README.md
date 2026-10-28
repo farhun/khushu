@@ -12,16 +12,16 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/100%25-Free_%26_Private-success.svg" alt="100% Free & Private">
   <img src="https://img.shields.io/badge/No_Ads-Forever-red.svg" alt="No Ads">
-  <img src="https://img.shields.io/github/v/tag/greykaizen/khushu?label=Version&color=3DDC84&sort=semver" alt="Release Version">
-  <!-- <img src="https://img.shields.io/github/downloads/greykaizen/khushu/latest/total?label=Downloads&color=3DDC84" alt="Total Downloads"> -->
+  <img src="https://img.shields.io/github/v/tag/farhun/khushu?label=Version&color=3DDC84&sort=semver" alt="Release Version">
+  <!-- <img src="https://img.shields.io/github/downloads/farhun/khushu/latest/total?label=Downloads&color=3DDC84" alt="Downloads"> -->
 </p>
 
 <p align="center"><i>Available on</i></p>
 <p align="center">
-  <a href="https://github.com/greykaizen/khushu/releases/latest"><img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.svg" height="104" align="middle"></a>&nbsp;&nbsp;
+  <a href="https://github.com/farhun/khushu/releases/latest"><img src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.svg" height="104" align="middle"></a>&nbsp;&nbsp;
   <a href="https://f-droid.org/packages/com.kaizen.khushu/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="104" align="middle"></a>&nbsp;&nbsp;
   <a href="https://android.izzysoft.de/repo/apk/com.kaizen.khushu"><img src="https://gitlab.com/izzyondroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="104" align="middle"></a>&nbsp;&nbsp;
-  <a href="http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/greykaizen/khushu"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="70" align="middle"></a>
+  <a href="http://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/farhun/khushu"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="70" align="middle"></a>
 </p>
 <p align="center"><i>Not on Play Store yet (empty pockets</i> 😁)</p>
 
@@ -104,7 +104,7 @@ To build the project locally, you will need:
 - **JDK 17**
 - **Android SDK 35** (Target)
 
-1. Clone the repository: `git clone https://github.com/greykaizen/khushu.git`
+1. Clone the repository: `git clone https://github.com/farhun/khushu.git`
 2. Open the project in Android Studio.
 3. Sync Gradle and run the `app` module on your device or emulator.
 

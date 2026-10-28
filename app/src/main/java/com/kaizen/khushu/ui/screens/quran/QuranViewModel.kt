@@ -6,7 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.kaizen.khushu.data.model.SurahMeta
 import com.kaizen.khushu.data.repository.QuranRepository
-import com.kaizen.khushu.data.repository.LearnRepository
+
 import com.kaizen.khushu.data.repository.VerseMeta
 import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.data.model.ContentSource
@@ -43,8 +43,11 @@ class QuranViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
-            val requestedSource = try { ContentSource.valueOf(settings.selectedTafsirSource) }
-                catch (_: Exception) { ContentSource.SPA5K }
+            val requestedSource = try {
+                ContentSource.valueOf(settings.selectedTafsirSource)
+            } catch (_: Exception) {
+                ContentSource.SPA5K
+            }
             val source = if (requestedSource == ContentSource.QF) ContentSource.SPA5K else requestedSource
             val catalog = CatalogRepository.tafsirs(context, source)
             val meta = catalog.find { it.id == settings.selectedTafsirId } ?: run {
@@ -149,7 +152,7 @@ class QuranViewModel(application: Application) : AndroidViewModel(application) {
                     scriptMap.value = emptyMap()
                 }
             } else {
-                val map = LearnRepository.getScriptMap(context, script)
+                val map = QuranRepository.getScriptMap(context, script)
                 withContext(Dispatchers.Main) {
                     scriptMap.value = map
                 }

@@ -21,11 +21,13 @@ import com.kaizen.khushu.data.repository.UserSettings
 import com.kaizen.khushu.util.AppIconManager
 import com.kaizen.khushu.widget.PrayerWidgetProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,9 +58,7 @@ class SettingsViewModel(
             fluidTransitions = true,
             vibrationOnCount = true,
             showLapCounter = true,
-            showExitButton = true,
-            showCompletionText = true,
-            completionText = "الحمد لله",
+
             colorSeed = "default",
             tasbeehListMode = true,
             startupTab = "home",
@@ -196,17 +196,6 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateShowLapCounter(show) }
     }
 
-    fun updateShowExitButton(show: Boolean) {
-        viewModelScope.launch { repository.updateShowExitButton(show) }
-    }
-
-    fun updateShowCompletionText(show: Boolean) {
-        viewModelScope.launch { repository.updateShowCompletionText(show) }
-    }
-
-    fun updateCompletionText(text: String) {
-        viewModelScope.launch { repository.updateCompletionText(text) }
-    }
 
     fun setColorSeed(seed: String) {
         viewModelScope.launch { repository.updateColorSeed(seed) }
@@ -349,6 +338,10 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateShowContinueReading(show) }
     }
 
+    fun setQuranExitReminderDisabled(disabled: Boolean) {
+        viewModelScope.launch { repository.updateQuranExitReminderDisabled(disabled) }
+    }
+
     fun toggleShowTajweed(show: Boolean) {
         viewModelScope.launch { repository.updateShowTajweed(show) }
     }
@@ -389,13 +382,25 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateLastReadTopicId("") }
     }
 
+    private var pendingBookmarkJob: Job? = null
+
     fun toggleBookmark(topicId: String, ayahIndex: Int = 0) {
-        viewModelScope.launch {
-            val key = "$topicId:$ayahIndex"
-            val current = settings.value.bookmarkedAyahs
-            val updated = if (current.contains(key)) current - key else current + key
-            repository.updateBookmarkedTopicIds(updated)
+        val previousJob = pendingBookmarkJob
+        pendingBookmarkJob = viewModelScope.launch {
+            previousJob?.join()
+            repository.toggleBookmarkedTopicId("$topicId:$ayahIndex")
         }
+    }
+
+    fun removeBookmark(topicId: String, ayahIndex: Int = 0) {
+        viewModelScope.launch {
+            repository.removeBookmarkedTopicId("$topicId:$ayahIndex")
+        }
+    }
+
+    suspend fun getLatestSettings(): UserSettings {
+        pendingBookmarkJob?.join()
+        return repository.settingsFlow.first()
     }
 
     fun toggleMastered(topicId: String) {
@@ -468,13 +473,6 @@ class SettingsViewModel(
         viewModelScope.launch { repository.updateShowExtraPrayerTimingsOnHome(enabled) }
     }
 
-    fun toggleShowUpcomingEventsOnHome(enabled: Boolean) {
-        viewModelScope.launch { repository.updateShowUpcomingEventsOnHome(enabled) }
-    }
-
-    fun setIslamicEventPerspective(perspective: String) {
-        viewModelScope.launch { repository.updateIslamicEventPerspective(perspective) }
-    }
 
     fun updateWidgetCustomization(
         backgroundColor: String,
@@ -496,18 +494,36 @@ class SettingsViewModel(
     }
 
     fun refreshLocation() {
+        refreshLocation(showProviderError = true) { location ->
+            location?.let { (lat, lng) -> setLocation(lat, lng) }
+        }
+    }
+
+    fun refreshLocation(onLocationFound: (Pair<Float, Float>?) -> Unit) {
+        refreshLocation(showProviderError = false, onLocationFound = onLocationFound)
+    }
+
+    private fun refreshLocation(
+        showProviderError: Boolean,
+        onLocationFound: (Pair<Float, Float>?) -> Unit
+    ) {
         val hasFineLocation =
             ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
+                    PackageManager.PERMISSION_GRANTED
         val hasCoarseLocation =
             ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
+                    PackageManager.PERMISSION_GRANTED
 
         if (!hasFineLocation && !hasCoarseLocation) {
+            onLocationFound(null)
             return
         }
 
-        val locationManager = appContext.getSystemService(LocationManager::class.java) ?: return
+        val locationManager = appContext.getSystemService(LocationManager::class.java)
+        if (locationManager == null) {
+            onLocationFound(null)
+            return
+        }
         val enabledProviders = buildList {
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 add(LocationManager.NETWORK_PROVIDER)
@@ -517,12 +533,18 @@ class SettingsViewModel(
             }
         }
         if (enabledProviders.isEmpty()) {
-            Toast.makeText(appContext, "No location providers enabled. Please check your system settings.", Toast.LENGTH_SHORT).show()
+            if (showProviderError) {
+                Toast.makeText(
+                    appContext,
+                    "No location providers enabled. Please check your system settings.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            onLocationFound(null)
             return
         }
 
         try {
-            // Try to get a fresh location first
             val provider = when {
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
                 locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
@@ -530,21 +552,18 @@ class SettingsViewModel(
             }
 
             locationManager.getCurrentLocation(provider, null, appContext.mainExecutor) { currentLocation ->
-                if (currentLocation != null) {
-                    setLocation(currentLocation.latitude.toFloat(), currentLocation.longitude.toFloat())
-                } else {
-                    // Fallback to last known if current fails
+                val location = currentLocation ?: runCatching {
                     enabledProviders
                         .asSequence()
                         .mapNotNull { p -> locationManager.getLastKnownLocation(p) }
                         .maxByOrNull(Location::getTime)
-                        ?.let { lastKnown ->
-                            setLocation(lastKnown.latitude.toFloat(), lastKnown.longitude.toFloat())
-                        }
-                }
+                }.getOrNull()
+                onLocationFound(location?.let { it.latitude.toFloat() to it.longitude.toFloat() })
             }
-        } catch (e: SecurityException) {
-            // Permission checks happen above
+        } catch (_: SecurityException) {
+            onLocationFound(null)
+        } catch (_: IllegalArgumentException) {
+            onLocationFound(null)
         }
     }
 
