@@ -19,12 +19,14 @@
 
         <!-- Row 1: Dates -->
         <RelativeLayout
+            android:id="@+id/date_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="2dp"
             android:paddingHorizontal="4dp">
 
             <LinearLayout
+                android:id="@+id/gregorian_date_container"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
@@ -63,12 +65,14 @@
 
         <!-- Row 2: Location and Countdown -->
         <RelativeLayout
+            android:id="@+id/location_countdown_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="4dp"
             android:paddingHorizontal="4dp">
 
             <LinearLayout
+                android:id="@+id/location_container"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
@@ -93,18 +97,36 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <Chronometer
-                android:id="@+id/text_countdown"
+            <LinearLayout
+                android:id="@+id/next_prayer_container"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
-                android:textColor="#99FFFFFF"
-                android:textSize="12sp"
-                android:countDown="true" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/text_next_prayer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Fajr in"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/text_countdown"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="02:15"
+                    android:textColor="#99FFFFFF"
+                    android:textSize="12sp" />
+            </LinearLayout>
         </RelativeLayout>
 
-        <!-- Row 3: Prayer Times Panel (6 Slots) -->
+        <!-- Row 3: Prayer Times Panel (5 Slots) -->
         <FrameLayout
+            android:id="@+id/prayer_panel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
@@ -121,36 +143,52 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:paddingVertical="8dp"
-                android:weightSum="6">
+                android:weightSum="5">
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                <LinearLayout android:id="@+id/row_fajr" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+
                     <TextView android:id="@+id/label_fajr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Fajr" android:textColor="#B3FFFFFF" android:textSize="10sp" android:textStyle="bold" />
-                    <TextView android:id="@+id/time_fajr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="03:48" android:textColor="#FFFFFF" android:textSize="10sp" android:layout_marginTop="2dp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    <FrameLayout android:layout_width="48dp" android:layout_height="18dp" android:layout_marginTop="2dp">
+                        <ImageView android:id="@+id/pill_fajr" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_current_prayer_pill" android:scaleType="fitXY" android:visibility="gone" />
+                        <TextView android:id="@+id/time_fajr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="03:48" android:textColor="#FFFFFF" android:textSize="10sp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    </FrameLayout>
                 </LinearLayout>
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                    <TextView android:id="@+id/label_shuruq" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Shuruq" android:textColor="#B3FFFFFF" android:textSize="10sp" />
-                    <TextView android:id="@+id/time_shuruq" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="05:20" android:textColor="#B3FFFFFF" android:textSize="10sp" android:layout_marginTop="2dp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
-                </LinearLayout>
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                <LinearLayout android:id="@+id/row_dhuhr" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+
                     <TextView android:id="@+id/label_dhuhr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Dhuhr" android:textColor="#B3FFFFFF" android:textSize="10sp" />
-                    <TextView android:id="@+id/time_dhuhr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="13:31" android:textColor="#B3FFFFFF" android:textSize="10sp" android:layout_marginTop="2dp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    <FrameLayout android:layout_width="48dp" android:layout_height="18dp" android:layout_marginTop="2dp">
+                        <ImageView android:id="@+id/pill_dhuhr" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_current_prayer_pill" android:scaleType="fitXY" android:visibility="gone" />
+                        <TextView android:id="@+id/time_dhuhr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="13:31" android:textColor="#B3FFFFFF" android:textSize="10sp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    </FrameLayout>
                 </LinearLayout>
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                <LinearLayout android:id="@+id/row_asr" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+
                     <TextView android:id="@+id/label_asr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Asr" android:textColor="#B3FFFFFF" android:textSize="10sp" />
-                    <TextView android:id="@+id/time_asr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="17:52" android:textColor="#B3FFFFFF" android:textSize="10sp" android:layout_marginTop="2dp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    <FrameLayout android:layout_width="48dp" android:layout_height="18dp" android:layout_marginTop="2dp">
+                        <ImageView android:id="@+id/pill_asr" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_current_prayer_pill" android:scaleType="fitXY" android:visibility="gone" />
+                        <TextView android:id="@+id/time_asr" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="17:52" android:textColor="#B3FFFFFF" android:textSize="10sp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    </FrameLayout>
                 </LinearLayout>
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                <LinearLayout android:id="@+id/row_maghrib" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+
                     <TextView android:id="@+id/label_maghrib" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Maghrib" android:textColor="#B3FFFFFF" android:textSize="10sp" />
-                    <TextView android:id="@+id/time_maghrib" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="21:43" android:textColor="#B3FFFFFF" android:textSize="10sp" android:layout_marginTop="2dp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    <FrameLayout android:layout_width="48dp" android:layout_height="18dp" android:layout_marginTop="2dp">
+                        <ImageView android:id="@+id/pill_maghrib" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_current_prayer_pill" android:scaleType="fitXY" android:visibility="gone" />
+                        <TextView android:id="@+id/time_maghrib" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="21:43" android:textColor="#B3FFFFFF" android:textSize="10sp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    </FrameLayout>
                 </LinearLayout>
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                <LinearLayout android:id="@+id/row_isha" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+
                     <TextView android:id="@+id/label_isha" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Isha" android:textColor="#B3FFFFFF" android:textSize="10sp" />
-                    <TextView android:id="@+id/time_isha" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="23:14" android:textColor="#B3FFFFFF" android:textSize="10sp" android:layout_marginTop="2dp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    <FrameLayout android:layout_width="48dp" android:layout_height="18dp" android:layout_marginTop="2dp">
+                        <ImageView android:id="@+id/pill_isha" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_current_prayer_pill" android:scaleType="fitXY" android:visibility="gone" />
+                        <TextView android:id="@+id/time_isha" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="23:14" android:textColor="#B3FFFFFF" android:textSize="10sp" android:paddingHorizontal="4dp" android:paddingVertical="2dp"/>
+                    </FrameLayout>
                 </LinearLayout>
             </LinearLayout>
         </FrameLayout>

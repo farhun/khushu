@@ -14,6 +14,19 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
 
+object WidgetVisibilityItems {
+    const val GREGORIAN_DATE = "gregorian_date"
+    const val HIJRI_DATE = "hijri_date"
+    const val LOCATION = "location"
+    const val FAJR = "fajr"
+    const val DHUHR = "dhuhr"
+    const val ASR = "asr"
+    const val MAGHRIB = "maghrib"
+    const val ISHA = "isha"
+    const val COUNTDOWN = "countdown"
+    const val NEXT_PRAYER = "next_prayer"
+}
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class SettingsRepository(private val context: Context) {
@@ -110,7 +123,8 @@ class SettingsRepository(private val context: Context) {
         val PRE_PRAYER_MINUTES_ISHA = intPreferencesKey("pre_prayer_minutes_isha")
         val PRAYER_NOTIFICATION_ALERT_STYLE = stringPreferencesKey("prayer_notification_alert_style")
         val PRAYER_NOTIFICATION_CUSTOM_SOUND_URI = stringPreferencesKey("prayer_notification_custom_sound_uri")
-        val LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID = stringPreferencesKey("last_delivered_prayer_notification_event_id")
+        val LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID =
+            stringPreferencesKey("last_delivered_prayer_notification_event_id")
         val SELECTED_EXTRA_PRAYER_TIMINGS = stringSetPreferencesKey("selected_extra_prayer_timings")
         val EXTRA_PRAYER_NOTIFICATIONS = stringSetPreferencesKey("extra_prayer_notifications")
         val SHOW_EXTRA_PRAYER_TIMINGS_ON_HOME = booleanPreferencesKey("show_extra_prayer_timings_on_home")
@@ -122,6 +136,8 @@ class SettingsRepository(private val context: Context) {
         val WIDGET_PANEL_COLOR = stringPreferencesKey("widget_panel_color")
         val WIDGET_PANEL_OPACITY = floatPreferencesKey("widget_panel_opacity")
         val WIDGET_FONT_COLOR = stringPreferencesKey("widget_font_color")
+        val WIDGET_HIDDEN_ITEMS = stringSetPreferencesKey("widget_hidden_items")
+        val WIDGET_INDICATOR_COLOR = stringPreferencesKey("widget_indicator_color")
     }
 
     val settingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -203,7 +219,8 @@ class SettingsRepository(private val context: Context) {
                 developerWelcomeDismissed = preferences[PreferencesKeys.DEVELOPER_WELCOME_DISMISSED] ?: false,
                 studyNoteDismissed = preferences[PreferencesKeys.STUDY_NOTE_DISMISSED] ?: false,
                 lastSeenAppVersionCode = preferences[PreferencesKeys.LAST_SEEN_APP_VERSION_CODE] ?: 0,
-                prayerCalculationMethod = preferences[PreferencesKeys.PRAYER_CALCULATION_METHOD] ?: "MUSLIM_WORLD_LEAGUE",
+                prayerCalculationMethod = preferences[PreferencesKeys.PRAYER_CALCULATION_METHOD]
+                    ?: "MUSLIM_WORLD_LEAGUE",
                 prayerMadhab = preferences[PreferencesKeys.PRAYER_MADHAB] ?: "SHAFI",
                 locationLat = preferences[PreferencesKeys.LOCATION_LAT] ?: 21.4225f,
                 locationLng = preferences[PreferencesKeys.LOCATION_LNG] ?: 39.8262f,
@@ -223,14 +240,16 @@ class SettingsRepository(private val context: Context) {
                 fajrPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_FAJR] ?: false,
                 dhuhrPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_DHUHR] ?: false,
                 asrPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_ASR] ?: false,
-                maghribPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_MAGHRIB] ?: false,
+                maghribPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_MAGHRIB]
+                    ?: false,
                 ishaPrePrayerNotificationEnabled = preferences[PreferencesKeys.PRE_PRAYER_NOTIFICATION_ISHA] ?: false,
                 fajrPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_FAJR] ?: 10,
                 dhuhrPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_DHUHR] ?: 10,
                 asrPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_ASR] ?: 10,
                 maghribPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_MAGHRIB] ?: 10,
                 ishaPrePrayerMinutes = preferences[PreferencesKeys.PRE_PRAYER_MINUTES_ISHA] ?: 10,
-                prayerNotificationAlertStyle = preferences[PreferencesKeys.PRAYER_NOTIFICATION_ALERT_STYLE] ?: "SYSTEM_SOUND",
+                prayerNotificationAlertStyle = preferences[PreferencesKeys.PRAYER_NOTIFICATION_ALERT_STYLE]
+                    ?: "SYSTEM_SOUND",
                 prayerNotificationCustomSoundUri = preferences[PreferencesKeys.PRAYER_NOTIFICATION_CUSTOM_SOUND_URI].orEmpty(),
                 lastDeliveredPrayerNotificationEventId = preferences[PreferencesKeys.LAST_DELIVERED_PRAYER_NOTIFICATION_EVENT_ID].orEmpty(),
                 selectedExtraPrayerTimings = preferences[PreferencesKeys.SELECTED_EXTRA_PRAYER_TIMINGS] ?: emptySet(),
@@ -243,12 +262,26 @@ class SettingsRepository(private val context: Context) {
                 widgetBackgroundOpacity = preferences[PreferencesKeys.WIDGET_BACKGROUND_OPACITY] ?: 0.8f,
                 widgetPanelColor = preferences[PreferencesKeys.WIDGET_PANEL_COLOR] ?: "#000000",
                 widgetPanelOpacity = preferences[PreferencesKeys.WIDGET_PANEL_OPACITY] ?: 0.3f,
-                widgetFontColor = preferences[PreferencesKeys.WIDGET_FONT_COLOR] ?: "#FFFFFF"
+                widgetFontColor = preferences[PreferencesKeys.WIDGET_FONT_COLOR] ?: "#FFFFFF",
+                hiddenWidgetItems = preferences[PreferencesKeys.WIDGET_HIDDEN_ITEMS] ?: emptySet(),
+                widgetIndicatorColor = preferences[PreferencesKeys.WIDGET_INDICATOR_COLOR] ?: "#7ED957"
             )
         }
 
     suspend fun updateWidgetFontColor(color: String) {
         context.dataStore.edit { it[PreferencesKeys.WIDGET_FONT_COLOR] = color }
+    }
+
+    suspend fun updateWidgetItemVisibility(item: String, visible: Boolean) {
+        context.dataStore.edit { preferences ->
+            val hiddenItems = preferences[PreferencesKeys.WIDGET_HIDDEN_ITEMS].orEmpty().toMutableSet()
+            if (visible) hiddenItems.remove(item) else hiddenItems.add(item)
+            preferences[PreferencesKeys.WIDGET_HIDDEN_ITEMS] = hiddenItems
+        }
+    }
+
+    suspend fun updateWidgetIndicatorColor(color: String) {
+        context.dataStore.edit { it[PreferencesKeys.WIDGET_INDICATOR_COLOR] = color }
     }
 
     suspend fun updateWidgetCustomization(
@@ -689,5 +722,7 @@ data class UserSettings(
     val widgetBackgroundOpacity: Float = 0.8f,
     val widgetPanelColor: String = "#000000",
     val widgetPanelOpacity: Float = 0.3f,
-    val widgetFontColor: String = "#FFFFFF"
+    val widgetFontColor: String = "#FFFFFF",
+    val hiddenWidgetItems: Set<String> = emptySet(),
+    val widgetIndicatorColor: String = "#7ED957"
 )
